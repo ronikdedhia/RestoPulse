@@ -1,0 +1,99 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL_LOCAL")
+}
+
+model Restaurant {
+  id            String    @id @default(cuid())
+  name          String
+  address       String
+  googleMapsUrl String?   @unique
+  zomatoUrl     String?   @unique
+  placeId       String?   @unique
+  rating        Float?
+  totalReviews  Int?
+  cuisine       String?
+  priceLevel    String?
+  website       String?
+  phone         String?
+  imageUrl      String?
+  lastScraped   DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  reviews    Review[]
+  insights   ActionableInsight[]
+  scrapeJobs ScrapeJob[]
+
+  @@index([isActive])
+}
+
+model Review {
+  id           String    @id @default(cuid())
+  restaurantId String
+  externalId   String?   @unique
+  reviewerName String?
+  rating       Int
+  text         String?
+  reviewDate   DateTime?
+  sentiment    String?
+  topics       String?
+  language     String?
+  source       String    @default("google_maps")
+  scrapedAt    DateTime  @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@index([sentiment])
+  @@index([rating])
+  @@index([reviewDate])
+}
+
+model ActionableInsight {
+  id               String   @id @default(cuid())
+  restaurantId     String
+  category         String
+  insight          String
+  priority         String
+  overallSentiment String
+  evidenceCount    Int      @default(0)
+  keyThemes        String?
+  suggestedAction  String?
+  impactScore      Float?
+  reviewPeriod     String?
+  generatedAt      DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@index([priority])
+  @@index([category])
+  @@index([generatedAt])
+}
+
+model ScrapeJob {
+  id           String    @id @default(cuid())
+  restaurantId String?
+  status       String    @default("pending")
+  jobType      String    @default("scrape")
+  bullJobId    String?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  reviewsFound Int       @default(0)
+  error        String?
+  metadata     String?
+  createdAt    DateTime  @default(now())
+
+  restaurant Restaurant? @relation(fields: [restaurantId], references: [id])
+
+  @@index([status])
+  @@index([restaurantId])
+  @@index([createdAt])
+}
