@@ -23,13 +23,27 @@ model Restaurant {
   phone         String?
   imageUrl      String?
   lastScraped   DateTime?
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  isActive         Boolean   @default(true)
+  ownerEmail       String?
+  digestEnabled    Boolean   @default(true)
+  unsubscribeToken String?   @unique
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  reviews    Review[]
-  insights   ActionableInsight[]
-  scrapeJobs ScrapeJob[]
+  reviews            Review[]
+  insights           ActionableInsight[]
+  scrapeJobs         ScrapeJob[]
+  insightSnapshots   InsightSnapshot[]
+  dishMentions       DishMention[]
+  staffMentions      StaffMention[]
+  reviewVelocities   ReviewVelocity[]
+  velocityAlerts     VelocityAlert[]
+  fakeReviewScores   FakeReviewScore[]
+  priceSensitivities PriceSensitivity[]
+  persistentIssues   PersistentIssue[]
+  ownerships         RestaurantOwnership[]
+  ownerEvents        OwnerEvent[]
+  healthScores       HealthScore[]
 
   @@index([isActive])
 }
@@ -46,9 +60,12 @@ model Review {
   topics       String?
   language     String?
   source       String    @default("google_maps")
+  isRedFlag    Boolean   @default(false)
+  redFlagWords String?
   scrapedAt    DateTime  @default(now())
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant     Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  fakeReviewScore FakeReviewScore?
 
   @@index([restaurantId])
   @@index([sentiment])
@@ -76,6 +93,188 @@ model ActionableInsight {
   @@index([priority])
   @@index([category])
   @@index([generatedAt])
+}
+
+model InsightSnapshot {
+  id           String   @id @default(cuid())
+  restaurantId String
+  weekStart    DateTime
+  category     String
+  impactScore  Float
+  priority     String
+  createdAt    DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, weekStart])
+}
+
+model DishMention {
+  id               String   @id @default(cuid())
+  restaurantId     String
+  dish             String
+  mentions         Int
+  positiveMentions Int      @default(0)
+  negativeMentions Int      @default(0)
+  extractedAt      DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@index([restaurantId, mentions])
+}
+
+model StaffMention {
+  id               String   @id @default(cuid())
+  restaurantId     String
+  staffName        String
+  mentions         Int
+  positiveMentions Int      @default(0)
+  negativeMentions Int      @default(0)
+  extractedAt      DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+}
+
+model ReviewVelocity {
+  id            String   @id @default(cuid())
+  restaurantId  String
+  date          DateTime
+  totalReviews  Int      @default(0)
+  positiveCount Int      @default(0)
+  negativeCount Int      @default(0)
+  avgRating     Float?
+  createdAt     DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, date])
+  @@index([restaurantId, date])
+}
+
+model VelocityAlert {
+  id            String    @id @default(cuid())
+  restaurantId  String
+  alertType     String
+  severity      String
+  message       String
+  reviewsPerDay Float
+  baseline      Float
+  isActive      Boolean   @default(true)
+  triggeredAt   DateTime  @default(now())
+  resolvedAt    DateTime?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, isActive])
+  @@index([isActive])
+}
+
+model FakeReviewScore {
+  id                String   @id @default(cuid())
+  reviewId          String   @unique
+  restaurantId      String
+  authenticityScore Float
+  flags             String?
+  isSuspicious      Boolean  @default(false)
+  scoredAt          DateTime @default(now())
+
+  review     Review     @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, isSuspicious])
+}
+
+model PriceSensitivity {
+  id               String   @id @default(cuid())
+  restaurantId     String
+  weekStart        DateTime
+  valueScore       Float
+  mentionCount     Int      @default(0)
+  positiveMentions Int      @default(0)
+  negativeMentions Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, weekStart])
+  @@index([restaurantId, weekStart])
+}
+
+model PersistentIssue {
+  id             String    @id @default(cuid())
+  restaurantId   String
+  category       String
+  weeksSeen      Int       @default(0)
+  firstSeenAt    DateTime  @default(now())
+  lastSeenAt     DateTime  @default(now())
+  avgImpactScore Float     @default(0)
+  isActive       Boolean   @default(true)
+  resolvedAt     DateTime?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, category])
+  @@index([restaurantId, isActive])
+}
+
+model User {
+  id        String   @id
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownedRestaurants RestaurantOwnership[]
+}
+
+model RestaurantOwnership {
+  id           String   @id @default(cuid())
+  userId       String
+  restaurantId String
+  role         String   @default("owner")
+  createdAt    DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, restaurantId])
+  @@index([userId])
+  @@index([restaurantId])
+}
+
+model OwnerEvent {
+  id           String   @id @default(cuid())
+  restaurantId String
+  description  String
+  eventDate    DateTime
+  createdAt    DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, eventDate])
+}
+
+model HealthScore {
+  id                 String   @id @default(cuid())
+  restaurantId       String
+  weekStart          DateTime
+  score              Float
+  ratingComponent    Float
+  sentimentComponent Float
+  velocityComponent  Float
+  persistentPenalty  Float
+  fakePenalty        Float
+  createdAt          DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, weekStart])
+  @@index([restaurantId, weekStart])
 }
 
 model ScrapeJob {

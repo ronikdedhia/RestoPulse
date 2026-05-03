@@ -4,6 +4,10 @@ import { config } from '../config';
 import { apifyService } from '../services/apify.service';
 import { restaurantService } from '../services/restaurant.service';
 import { reviewService } from '../services/review.service';
+import { velocityService } from '../services/velocity.service';
+import { fakeReviewService } from '../services/fakeReview.service';
+import { priceSensitivityService } from '../services/priceSensitivity.service';
+import { redFlagService } from '../services/redFlag.service';
 import { insightsQueue, scrapeQueue } from '../queues';
 import { prisma } from '../db/client';
 import { logger } from '../utils/logger';
@@ -84,6 +88,31 @@ export function createScrapeWorker() {
         }
 
         await restaurantService.updateLastScraped(restaurantId);
+
+        // Velocity + fake review scoring — non-fatal
+        try {
+          await velocityService.compute(restaurantId);
+        } catch (velErr) {
+          logger.warn(`[scrape-worker] Velocity compute failed for ${restaurantId}: ${velErr instanceof Error ? velErr.message : String(velErr)}`);
+        }
+
+        try {
+          await fakeReviewService.scoreReviews(restaurantId);
+        } catch (fakeErr) {
+          logger.warn(`[scrape-worker] Fake review scoring failed for ${restaurantId}: ${fakeErr instanceof Error ? fakeErr.message : String(fakeErr)}`);
+        }
+
+        try {
+          await priceSensitivityService.compute(restaurantId);
+        } catch (priceErr) {
+          logger.warn(`[scrape-worker] Price sensitivity compute failed for ${restaurantId}: ${priceErr instanceof Error ? priceErr.message : String(priceErr)}`);
+        }
+
+        try {
+          await redFlagService.scan(restaurantId);
+        } catch (rfErr) {
+          logger.warn(`[scrape-worker] Red flag scan failed for ${restaurantId}: ${rfErr instanceof Error ? rfErr.message : String(rfErr)}`);
+        }
 
         if (jobDbId) {
           await prisma.scrapeJob.update({

@@ -40,99 +40,73 @@ export default function AddRestaurantPage() {
     }
   };
 
+  const inputClass = 'glass-input w-full rounded-lg px-3 py-2 text-sm text-white/80 placeholder:text-white/25';
+
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b px-6 py-4 flex items-center gap-4">
-        <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
+    <div className="min-h-screen">
+      <header className="glass-header px-6 py-4 flex items-center gap-4">
+        <Link href="/dashboard" className="text-sm text-white/40 hover:text-white/80 transition-colors">
           ← Dashboard
         </Link>
-        <h1 className="text-xl font-bold">Add Restaurant</h1>
+        <h1 className="text-lg font-bold text-white/90">Add Restaurant</h1>
       </header>
 
-      <main className="px-6 py-8 max-w-lg">
+      <main className="px-6 py-8 max-w-lg mx-auto">
         <form onSubmit={handleSubmit} className="space-y-5">
-
           <div className="space-y-2">
-            <label htmlFor="name" className="text-sm font-medium">
-              Restaurant Name <span className="text-destructive">*</span>
+            <label htmlFor="name" className="text-sm font-medium text-white/70">
+              Restaurant Name <span className="text-red-400">*</span>
             </label>
-            <input
-              id="name"
-              name="name"
-              required
-              placeholder="e.g. Bademiya Colaba"
-              className="w-full px-3 py-2 border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            <input id="name" name="name" required placeholder="e.g. Bademiya Colaba" className={inputClass} />
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="address" className="text-sm font-medium">
-              Address <span className="text-destructive">*</span>
+            <label htmlFor="address" className="text-sm font-medium text-white/70">
+              Address <span className="text-red-400">*</span>
             </label>
-            <input
-              id="address"
-              name="address"
-              required
-              placeholder="e.g. Colaba, Mumbai"
-              className="w-full px-3 py-2 border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            <input id="address" name="address" required placeholder="e.g. Colaba, Mumbai" className={inputClass} />
           </div>
 
-          <div className="rounded-lg border p-4 space-y-4">
-            <p className="text-sm font-medium">Review Sources <span className="text-muted-foreground font-normal">(fill one or both)</span></p>
+          <div className="glass-card p-4 space-y-4">
+            <p className="text-sm font-medium text-white/70">Review Sources <span className="text-white/40 font-normal text-xs">(fill one or both)</span></p>
 
             <div className="space-y-2">
-              <label htmlFor="googleMapsUrl" className="text-sm flex items-center gap-2">
-                <span className="px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700 border border-blue-200 font-medium">Google</span>
+              <label htmlFor="googleMapsUrl" className="text-sm text-white/60 flex items-center gap-2">
+                <span className="px-1.5 py-0.5 rounded text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">Google</span>
                 Google Maps URL
               </label>
-              <input
-                id="googleMapsUrl"
-                name="googleMapsUrl"
-                placeholder="https://maps.google.com/?cid=..."
-                className="w-full px-3 py-2 border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <input id="googleMapsUrl" name="googleMapsUrl" placeholder="https://maps.google.com/?cid=..." className={inputClass} />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="zomatoUrl" className="text-sm flex items-center gap-2">
-                <span className="px-1.5 py-0.5 rounded text-xs bg-orange-100 text-orange-700 border border-orange-200 font-medium">Zomato</span>
+              <label htmlFor="zomatoUrl" className="text-sm text-white/60 flex items-center gap-2">
+                <span className="px-1.5 py-0.5 rounded text-xs bg-orange-500/10 text-orange-400 border border-orange-500/20 font-medium">Zomato</span>
                 Zomato Reviews URL
               </label>
-              <input
-                id="zomatoUrl"
-                name="zomatoUrl"
-                placeholder="https://www.zomato.com/mumbai/restaurant-name/reviews"
-                className="w-full px-3 py-2 border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <input id="zomatoUrl" name="zomatoUrl" placeholder="https://www.zomato.com/mumbai/restaurant/reviews" className={inputClass} />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="cuisine" className="text-sm font-medium">
-              Cuisine <span className="text-muted-foreground text-xs">(optional)</span>
+            <label htmlFor="cuisine" className="text-sm font-medium text-white/70">
+              Cuisine <span className="text-white/30 text-xs">(optional)</span>
             </label>
-            <input
-              id="cuisine"
-              name="cuisine"
-              placeholder="e.g. North Indian, Chinese"
-              className="w-full px-3 py-2 border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            <input id="cuisine" name="cuisine" placeholder="e.g. North Indian, Chinese" className={inputClass} />
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-red-400">{error}</p>}
 
           <div className="flex gap-3 pt-2">
             <Link
               href="/dashboard"
-              className="flex-1 py-2 border rounded-md text-sm text-center hover:bg-accent transition-colors"
+              className="flex-1 py-2 glass rounded-lg text-sm text-center text-white/60 hover:text-white/80 transition-colors"
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
             >
               {loading ? 'Adding...' : 'Add Restaurant'}
             </button>

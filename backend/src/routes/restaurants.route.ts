@@ -44,6 +44,84 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
+router.patch('/:id/digest', async (req: Request, res: Response) => {
+  try {
+    const { ownerEmail, digestEnabled } = req.body;
+    const update: Record<string, unknown> = {};
+
+    if (typeof ownerEmail === 'string') update.ownerEmail = ownerEmail || null;
+    if (typeof digestEnabled === 'boolean') update.digestEnabled = digestEnabled;
+
+    const restaurant = await prisma.restaurant.update({
+      where: { id: req.params.id as string },
+      data: update,
+      select: { id: true, ownerEmail: true, digestEnabled: true },
+    });
+
+    res.json({ success: true, data: restaurant });
+  } catch (err: any) {
+    if (err.code === 'P2025') return res.status(404).json({ success: false, error: 'Restaurant not found' });
+    res.status(500).json({ success: false, error: 'Failed to update digest settings' });
+  }
+});
+
+// Owner event log
+router.get('/:id/events', async (req: Request, res: Response) => {
+  try {
+    const events = await prisma.ownerEvent.findMany({
+      where: { restaurantId: req.params.id as string },
+      orderBy: { eventDate: 'desc' },
+    });
+    res.json({ success: true, data: events });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to fetch events' });
+  }
+});
+
+router.post('/:id/events', async (req: Request, res: Response) => {
+  try {
+    const { description, eventDate } = req.body;
+    if (!description) return res.status(400).json({ success: false, error: 'description is required' });
+    const event = await prisma.ownerEvent.create({
+      data: {
+        restaurantId: req.params.id as string,
+        description,
+        eventDate: eventDate ? new Date(eventDate) : new Date(),
+      },
+    });
+    res.status(201).json({ success: true, data: event });
+  } catch (err: any) {
+    if (err.code === 'P2003') return res.status(404).json({ success: false, error: 'Restaurant not found' });
+    res.status(500).json({ success: false, error: 'Failed to create event' });
+  }
+});
+
+router.delete('/:id/events/:eventId', async (req: Request, res: Response) => {
+  try {
+    await prisma.ownerEvent.delete({
+      where: { id: req.params.eventId as string, restaurantId: req.params.id as string },
+    });
+    res.json({ success: true });
+  } catch (err: any) {
+    if (err.code === 'P2025') return res.status(404).json({ success: false, error: 'Event not found' });
+    res.status(500).json({ success: false, error: 'Failed to delete event' });
+  }
+});
+
+// Health score
+router.get('/:id/health-score', async (req: Request, res: Response) => {
+  try {
+    const { healthScoreService } = await import('../services/healthScore.service');
+    const [latest, history] = await Promise.all([
+      healthScoreService.getLatest(req.params.id as string),
+      healthScoreService.getHistory(req.params.id as string),
+    ]);
+    res.json({ success: true, data: { latest, history } });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to fetch health score' });
+  }
+});
+
 // Queue scrape jobs for all active sources on a restaurant
 router.post('/:id/scrape', async (req: Request, res: Response) => {
   try {

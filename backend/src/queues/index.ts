@@ -1,7 +1,20 @@
 import { Queue } from 'bullmq';
 import { createRedis } from '../config/redis';
+import { config } from '../config';
 import { logger } from '../utils/logger';
 import { ScrapeJobData, InsightsJobData } from '../types';
+
+// NEWSLETTER_SEND_TIME is HH:MM UTC (default 02:30 = Monday 8am IST)
+function buildDigestCron(): string {
+  const [hh, mm] = config.sendgrid.newsletterSendTime.split(':').map(Number);
+  if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
+    logger.warn(`[cron] Invalid NEWSLETTER_SEND_TIME "${config.sendgrid.newsletterSendTime}", falling back to 02:30 UTC`);
+    return '30 2 * * 1';
+  }
+  return `${mm} ${hh} * * 1`;
+}
+
+const WEEKLY_DIGEST_CRON = buildDigestCron();
 
 export const scrapeQueue = new Queue<ScrapeJobData>('scrape', {
   connection: createRedis(),
@@ -23,12 +36,34 @@ export const insightsQueue = new Queue<InsightsJobData>('insights', {
   },
 });
 
+export const digestQueue = new Queue('digest', {
+  connection: createRedis(),
+  defaultJobOptions: { attempts: 2, removeOnComplete: 10, removeOnFail: 20 },
+});
+
 export async function initQueues() {
-  await Promise.all([scrapeQueue.waitUntilReady(), insightsQueue.waitUntilReady()]);
+  await Promise.all([scrapeQueue.waitUntilReady(), insightsQueue.waitUntilReady(), digestQueue.waitUntilReady()]);
   logger.info('BullMQ queues ready');
 }
 
-const CRON_PATTERN = '04 12 * * *';
+export async function scheduleWeeklyDigest() {
+  const existing = await digestQueue.getRepeatableJobs();
+
+  for (const job of existing) {
+    if (job.name === 'weekly-digest-all') {
+      if (job.pattern === WEEKLY_DIGEST_CRON) {
+        logger.info(`[cron] weekly-digest-all already registered, next run: ${new Date(job.next).toISOString()}`);
+        return;
+      }
+      await digestQueue.removeRepeatableByKey(job.key);
+    }
+  }
+
+  await digestQueue.add('weekly-digest-all', {}, { repeat: { pattern: WEEKLY_DIGEST_CRON } });
+  logger.info(`[cron] weekly-digest-all registered — pattern: "${WEEKLY_DIGEST_CRON}"`);
+}
+
+const CRON_PATTERN = '30 23 * * *';
 
 export async function scheduleDailyCron() {
   const existing = await scrapeQueue.getRepeatableJobs();

@@ -2,6 +2,9 @@ import { Worker, Job } from 'bullmq';
 import { createRedis } from '../config/redis';
 import { config } from '../config';
 import { insightService } from '../services/insight.service';
+import { escalationService } from '../services/escalation.service';
+import { healthScoreService } from '../services/healthScore.service';
+import { telegramService } from '../services/telegram.service';
 import { prisma } from '../db/client';
 import { logger } from '../utils/logger';
 import { InsightsJobData } from '../types';
@@ -23,6 +26,36 @@ export function createInsightsWorker() {
 
       try {
         const count = await insightService.generateForRestaurant(restaurantId);
+
+        // Dish + staff extraction run after insights — failures are non-fatal
+        try {
+          await insightService.extractDishMentions(restaurantId);
+        } catch (dishErr) {
+          logger.warn(`[insights-worker] Dish extraction failed for ${restaurantId}: ${dishErr instanceof Error ? dishErr.message : String(dishErr)}`);
+        }
+
+        try {
+          await insightService.extractStaffMentions(restaurantId);
+        } catch (staffErr) {
+          logger.warn(`[insights-worker] Staff extraction failed for ${restaurantId}: ${staffErr instanceof Error ? staffErr.message : String(staffErr)}`);
+        }
+
+        try {
+          await escalationService.check(restaurantId);
+        } catch (escErr) {
+          logger.warn(`[insights-worker] Escalation check failed for ${restaurantId}: ${escErr instanceof Error ? escErr.message : String(escErr)}`);
+        }
+
+        try {
+          await healthScoreService.compute(restaurantId);
+        } catch (hsErr) {
+          logger.warn(`[insights-worker] Health score failed for ${restaurantId}: ${hsErr instanceof Error ? hsErr.message : String(hsErr)}`);
+        }
+
+        // Non-fatal — send insights summary to Telegram immediately
+        telegramService.sendInsightsSummary(restaurantId).catch((tgErr) => {
+          logger.warn(`[insights-worker] Telegram notify failed for ${restaurantId}: ${tgErr instanceof Error ? tgErr.message : String(tgErr)}`);
+        });
 
         if (jobDbId) {
           await prisma.scrapeJob.update({

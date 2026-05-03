@@ -129,4 +129,3 @@ class ApifyService {
 }
 
 export const apifyService = new ApifyService();
-

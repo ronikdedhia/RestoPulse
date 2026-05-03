@@ -5,12 +5,13 @@ import rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { logger } from './utils/logger';
 import { connectDB, disconnectDB } from './db/client';
-import { initQueues, scheduleDailyCron } from './queues';
+import { initQueues, scheduleDailyCron, scheduleWeeklyDigest } from './queues';
 import { startWorkers } from './workers';
 import restaurantsRouter from './routes/restaurants.route';
 import reviewsRouter from './routes/reviews.route';
 import insightsRouter from './routes/insights.route';
 import jobsRouter from './routes/jobs.route';
+import authRouter from './routes/auth.route';
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use('/api/restaurants', restaurantsRouter);
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/insights', insightsRouter);
 app.use('/api/jobs', jobsRouter);
+app.use('/api/auth', authRouter);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, error: 'Route not found' });
@@ -50,6 +52,7 @@ async function bootstrap() {
     await initQueues();
     startWorkers();
     await scheduleDailyCron();
+    await scheduleWeeklyDigest();
 
     const server = app.listen(config.port, () => {
       logger.info(`RestoPulse backend running on port ${config.port}`);

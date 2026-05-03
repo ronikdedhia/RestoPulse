@@ -100,3 +100,31 @@ export interface InsightsJobData {
   restaurantId: string;
   jobDbId?: string;
 }
+
+export const DishMentionItemSchema = z.object({
+  dish: z.string(),
+  mentions: z.number().int().min(1),
+  positiveMentions: z.number().int().min(0),
+  negativeMentions: z.number().int().min(0),
+});
+
+export const DishMentionsResponseSchema = z.object({
+  dishes: z.array(DishMentionItemSchema),
+});
+
+export type DishMentionItem = z.infer<typeof DishMentionItemSchema>;
+export type DishMentionsResponse = z.infer<typeof DishMentionsResponseSchema>;
+
+export const StaffMentionItemSchema = z.object({
+  name: z.string(),
+  mentions: z.number().int().min(1),
+  positiveMentions: z.number().int().min(0),
+  negativeMentions: z.number().int().min(0),
+});
+
+export const StaffMentionsResponseSchema = z.object({
+  staff: z.array(StaffMentionItemSchema),
+});
+
+export type StaffMentionItem = z.infer<typeof StaffMentionItemSchema>;
+export type StaffMentionsResponse = z.infer<typeof StaffMentionsResponseSchema>;
