@@ -1,0 +1,18 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    # Every 14 min, Mon-Fri, 10am-8pm IST (4:30am-2:30pm UTC)
+    - cron: '*/14 4-14 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping RestoPulse
+        run: curl -f https://restopulse.onrender.com/health
+      # - name: Ping Project 2
+      #   run: curl -f https://<project-2>.onrender.com/health
+      # - name: Ping Project 3
+      #   run: curl -f https://<project-3>.onrender.com/health
