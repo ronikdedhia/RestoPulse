@@ -70,4 +70,12 @@ export const config = {
   },
 
   backendUrl: optional('BACKEND_URL', 'http://localhost:3001'),
+
+  huggingFace: {
+    apiKey: optional('HUGGING_FACE_API_KEY', ''),
+  },
+
+  elevenLabs: {
+    apiKey: optional('ELEVEN_LABS_API_KEY', ''),
+  },
 } as const;

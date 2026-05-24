@@ -52,7 +52,7 @@ export async function scheduleWeeklyDigest() {
   for (const job of existing) {
     if (job.name === 'weekly-digest-all') {
       if (job.pattern === WEEKLY_DIGEST_CRON) {
-        logger.info(`[cron] weekly-digest-all already registered, next run: ${new Date(job.next).toISOString()}`);
+        logger.info(`[cron] weekly-digest-all already registered, next run: ${job.next ? new Date(job.next).toISOString() : 'unknown'}`);
         return;
       }
       await digestQueue.removeRepeatableByKey(job.key);
@@ -73,7 +73,7 @@ export async function scheduleDailyCron() {
   for (const job of existing) {
     if (job.name === 'daily-scrape-all') {
       if (job.pattern === CRON_PATTERN) {
-        logger.info(`[cron] daily-scrape-all already registered with correct pattern "${CRON_PATTERN}", next run: ${new Date(job.next).toISOString()}`);
+        logger.info(`[cron] daily-scrape-all already registered with correct pattern "${CRON_PATTERN}", next run: ${job.next ? new Date(job.next).toISOString() : 'unknown'}`);
         return;
       }
       logger.warn(`[cron] Removing stale daily-scrape-all with pattern "${job.pattern}"`);

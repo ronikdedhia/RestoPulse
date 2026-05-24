@@ -1,17 +1,10 @@
 import { prisma } from '../db/client';
 import { logger } from '../utils/logger';
 
-const NEGATIVE_KEYWORDS = ['terrible', 'awful', 'horrible', 'worst', 'disgusting', 'pathetic', 'dirty', 'rude', 'cold food', 'raw', 'cockroach', 'food poisoning', 'never again', 'waste of money'];
-const POSITIVE_KEYWORDS = ['amazing', 'excellent', 'outstanding', 'fantastic', 'wonderful', 'best ever', 'love this', 'highly recommend', 'perfect', 'brilliant'];
-
-function containsAny(text: string, keywords: string[]): boolean {
-  const lower = text.toLowerCase();
-  return keywords.some((kw) => lower.includes(kw));
-}
-
 function scoreReview(review: {
   rating: number;
   text: string | null;
+  sentiment: string | null;
   reviewDate: Date | null;
   reviewerName: string | null;
 }): { score: number; flags: string[] } {
@@ -34,14 +27,16 @@ function scoreReview(review: {
       flags.push('short_text');
     }
 
-    // Rating vs text sentiment mismatch
-    if (review.rating === 5 && containsAny(review.text, NEGATIVE_KEYWORDS)) {
-      score -= 0.35;
-      flags.push('rating_text_mismatch_high');
-    }
-    if (review.rating === 1 && containsAny(review.text, POSITIVE_KEYWORDS)) {
-      score -= 0.35;
-      flags.push('rating_text_mismatch_low');
+    // ML-based rating vs sentiment mismatch
+    if (review.sentiment) {
+      if (review.rating >= 4 && review.sentiment === 'negative') {
+        score -= 0.35;
+        flags.push('rating_text_mismatch_high');
+      }
+      if (review.rating <= 2 && review.sentiment === 'positive') {
+        score -= 0.35;
+        flags.push('rating_text_mismatch_low');
+      }
     }
 
     // Extremely generic text (very short + only common words)
@@ -65,7 +60,7 @@ class FakeReviewService {
   async scoreReviews(restaurantId: string): Promise<number> {
     const reviews = await prisma.review.findMany({
       where: { restaurantId },
-      select: { id: true, rating: true, text: true, reviewDate: true, reviewerName: true },
+      select: { id: true, rating: true, text: true, sentiment: true, reviewDate: true, reviewerName: true },
     });
 
     if (reviews.length === 0) return 0;

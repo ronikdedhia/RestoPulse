@@ -1,6 +1,7 @@
 import { prisma } from '../db/client';
 import { logger } from '../utils/logger';
 import { ApifyReview, ZomatoReview } from '../types';
+import { huggingFaceService } from './huggingFace.service';
 
 class ReviewService {
   async batchUpsert(restaurantId: string, reviews: ApifyReview[]): Promise<number> {
@@ -31,6 +32,7 @@ class ReviewService {
     }
 
     logger.info(`Saved ${saved}/${reviews.length} reviews for ${restaurantId}`);
+    await this.backfillSentiment(restaurantId);
     return saved;
   }
 
@@ -70,7 +72,33 @@ class ReviewService {
     }
 
     logger.info(`[review] Saved ${saved}/${reviews.length} Zomato reviews for ${restaurantId}`);
+    await this.backfillSentiment(restaurantId);
     return saved;
+  }
+
+  async backfillSentiment(restaurantId: string): Promise<void> {
+    const unscored = await prisma.review.findMany({
+      where: { restaurantId, sentiment: null, text: { not: null } },
+      select: { id: true, text: true },
+    });
+
+    if (unscored.length === 0) return;
+
+    logger.info(`[hf] Scoring sentiment for ${unscored.length} reviews (${restaurantId})`);
+
+    const texts = unscored.map((r) => r.text!);
+    const sentiments = await huggingFaceService.analyzeSentimentBatch(texts);
+
+    for (let i = 0; i < unscored.length; i++) {
+      const sentiment = sentiments[i];
+      if (!sentiment) continue;
+      await prisma.review.update({
+        where: { id: unscored[i].id },
+        data: { sentiment },
+      });
+    }
+
+    logger.info(`[hf] Sentiment backfill done for ${restaurantId}`);
   }
 
   async getByRestaurant(
