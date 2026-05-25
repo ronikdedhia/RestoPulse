@@ -62,10 +62,10 @@ export const config = {
     maxZomatoReviewsPerRestaurant: parseInt(optional('MAX_ZOMATO_REVIEWS_PER_RESTAURANT', '5'), 10),
   },
 
-  sendgrid: {
-    apiKey: optional('SENDGRID_EMAIL_API_KEY', ''),
-    fromEmail: optional('SENDGRID_FROM_EMAIL', 'noreply@restopulse.com'),
-    fromName: optional('SENDGRID_FROM_NAME', 'RestoPulse'),
+  brevo: {
+    apiKey: optional('BREVO_API_KEY', ''),
+    fromEmail: optional('BREVO_FROM_EMAIL', 'noreply@restopulse.com'),
+    fromName: optional('BREVO_FROM_NAME', 'RestoPulse'),
     newsletterSendTime: optional('NEWSLETTER_SEND_TIME', '02:30'),
   },
 

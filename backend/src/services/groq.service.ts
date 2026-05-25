@@ -47,7 +47,11 @@ Generate 5-6 insights sorted by impactScore desc.`;
     if (!content) throw new Error('No response from GROQ');
 
     const jsonText = this.extractJson(content);
-    const parsed = InsightsResponseSchema.safeParse(JSON.parse(jsonText));
+    let raw: unknown;
+    try { raw = JSON.parse(jsonText); } catch {
+      throw new Error(`Groq returned invalid JSON for insights: ${jsonText.slice(0, 120)}`);
+    }
+    const parsed = InsightsResponseSchema.safeParse(raw);
 
     if (!parsed.success) {
       logger.error(`GROQ response validation failed: ${parsed.error.message}`);
@@ -64,13 +68,20 @@ Generate 5-6 insights sorted by impactScore desc.`;
     const texts = reviews
       .filter((r) => r.text && r.text.trim().length > 10)
       .slice(0, 50)
-      .map((r) => `[${r.rating}★] ${r.text!.slice(0, 150)}`)
+      .map((r) => `[${r.rating}★] ${r.text!.slice(0, 300)}`)
       .join('\n');
 
-    const prompt = `Extract menu item mentions from these reviews for "${restaurantName}". Count how many times each dish is mentioned and whether each mention is positive or negative. Return JSON only:
-{"dishes":[{"dish":"dish name","mentions":5,"positiveMentions":4,"negativeMentions":1}]}
+    const prompt = `Extract SPECIFIC dish and menu item names mentioned in these reviews for "${restaurantName}".
 
-Only include dishes mentioned 2+ times. Max 15 dishes. Sort by mentions desc.
+Rules:
+- Only extract named dishes: "shawarma", "butter chicken", "biryani", "cheese burst pizza", "cold coffee", etc.
+- NEVER include generic words: "food", "items", "dishes", "meal", "order", "service", "place", "stuff", "thing", "everything", "nothing"
+- Use the most specific name mentioned (e.g. "chicken shawarma" not just "shawarma" if that's what reviewers say)
+- Count positive vs negative mentions per dish
+- Only include dishes mentioned 2+ times, max 15, sorted by mentions desc
+
+Return JSON only:
+{"dishes":[{"dish":"butter chicken","mentions":5,"positiveMentions":4,"negativeMentions":1}]}
 
 REVIEWS:
 ${texts}`;
@@ -88,7 +99,11 @@ ${texts}`;
     if (!content) throw new Error('No response from GROQ for dish extraction');
 
     const jsonText = this.extractJson(content);
-    const parsed = DishMentionsResponseSchema.safeParse(JSON.parse(jsonText));
+    let raw: unknown;
+    try { raw = JSON.parse(jsonText); } catch {
+      throw new Error(`Groq returned invalid JSON for dishes: ${jsonText.slice(0, 120)}`);
+    }
+    const parsed = DishMentionsResponseSchema.safeParse(raw);
 
     if (!parsed.success) {
       logger.error(`Dish extraction validation failed: ${parsed.error.message}`);
@@ -129,7 +144,11 @@ ${texts}`;
     if (!content) throw new Error('No response from GROQ for staff extraction');
 
     const jsonText = this.extractJson(content);
-    const parsed = StaffMentionsResponseSchema.safeParse(JSON.parse(jsonText));
+    let raw: unknown;
+    try { raw = JSON.parse(jsonText); } catch {
+      throw new Error(`Groq returned invalid JSON for staff: ${jsonText.slice(0, 120)}`);
+    }
+    const parsed = StaffMentionsResponseSchema.safeParse(raw);
 
     if (!parsed.success) {
       logger.error(`Staff extraction validation failed: ${parsed.error.message}`);
@@ -139,9 +158,51 @@ ${texts}`;
     return parsed.data;
   }
 
+  async generateReviewReply(
+    reviewText: string,
+    restaurantName: string,
+    rating: number,
+    tone: 'formal' | 'apologetic' | 'assertive'
+  ): Promise<string> {
+    const toneGuide = {
+      formal: 'Professional and polite. Acknowledge the feedback, state what will be investigated, invite them back.',
+      apologetic: 'Warm and sincere apology. Take responsibility. Show empathy. Offer to make it right.',
+      assertive: 'Confident but respectful. Address specific points, clarify if needed, highlight strengths.',
+    }[tone];
+
+    const prompt = `Write a short owner reply to this ${rating}-star review for "${restaurantName}".
+
+Tone: ${toneGuide}
+
+Rules:
+- Max 3 sentences
+- Do NOT use generic phrases like "We value your feedback" or "We strive for excellence"
+- Be specific to what the review actually says
+- End with an invitation to return or contact directly
+- Do not use emojis
+- Write as the restaurant owner/manager, not a corporate PR team
+
+Review: "${reviewText}"
+
+Reply:`;
+
+    const response = await client.chat.completions.create({
+      model: config.groq.model,
+      max_tokens: 200,
+      messages: [
+        { role: 'system', content: 'You are a restaurant owner writing a direct, human reply to a customer review. Write naturally, not like a corporate template.' },
+        { role: 'user', content: prompt },
+      ],
+    });
+
+    const content = response.choices[0]?.message?.content?.trim();
+    if (!content) throw new Error('No reply generated');
+    return content;
+  }
+
   private extractJson(text: string): string {
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('No JSON found in GROQ response');
+    if (!match) throw new Error(`No JSON object found in GROQ response: ${text.slice(0, 120)}`);
     return match[0];
   }
 }

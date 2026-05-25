@@ -25,16 +25,16 @@ class ApifyService {
   async scrapeRestaurant(googleMapsUrl: string, maxReviews: number): Promise<ScrapeResult> {
     logger.info(`Starting Apify scrape: ${googleMapsUrl}`);
 
-    const yesterday = new Date(Date.now() - 86_400_000).toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD IST
     const runRes = await client.post(`/acts/${config.apify.actorId}/runs`, {
       startUrls: [{ url: googleMapsUrl }],
       maxReviews,
       reviewsSort: 'newest',
-      reviewsStartDate: yesterday,
+      reviewsStartDate: today,
       language: 'en',
       personalData: true,
     });
-    logger.info(`[apify] Scraping max ${maxReviews} reviews from ${yesterday} onwards`);
+    logger.info(`[apify] Scraping max ${maxReviews} reviews from ${today} onwards`);
 
     const runId: string = runRes.data.data.id;
     logger.debug(`Apify run started: ${runId}`);
@@ -69,7 +69,10 @@ class ApifyService {
     const res = await client.get(`/datasets/${datasetId}/items`, {
       params: { clean: true, format: 'json' },
     });
-    return res.data as unknown[];
+    if (!Array.isArray(res.data)) {
+      throw new Error(`Apify dataset returned non-array: ${JSON.stringify(res.data).slice(0, 120)}`);
+    }
+    return res.data;
   }
 
   private parseResult(items: unknown[]): ScrapeResult {

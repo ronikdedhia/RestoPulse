@@ -1,10 +1,14 @@
-import sgMail from '@sendgrid/mail';
+import axios from 'axios';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { prisma } from '../db/client';
 import { randomUUID } from 'crypto';
 
-sgMail.setApiKey(config.sendgrid.apiKey);
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
+
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
   food_quality: 'Food Quality', service: 'Service', ambiance: 'Ambiance',
@@ -36,28 +40,28 @@ function buildDigestHtml(data: {
     <tr>
       <td style="padding:10px 0;border-bottom:1px solid #f0f0f0;">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span style="font-size:12px;font-weight:600;text-transform:uppercase;color:#6b7280;letter-spacing:0.05em;">${CATEGORY_LABELS[ins.category] ?? ins.category}</span>
+          <span style="font-size:12px;font-weight:600;text-transform:uppercase;color:#6b7280;letter-spacing:0.05em;">${esc(CATEGORY_LABELS[ins.category] ?? ins.category)}</span>
           ${TREND_HTML[ins.trend ?? ''] ?? ''}
         </div>
-        <p style="margin:4px 0 0;font-size:14px;color:#111;">${ins.insight}</p>
+        <p style="margin:4px 0 0;font-size:14px;color:#111;">${esc(ins.insight)}</p>
         <p style="margin:2px 0 0;font-size:12px;color:#9ca3af;">Impact: ${(ins.impactScore * 100).toFixed(0)}%</p>
       </td>
     </tr>`).join('');
 
   const alertRows = data.velocityAlerts.map((a) => `
     <div style="padding:10px 12px;border-left:4px solid ${ALERT_COLORS[a.severity] ?? '#6b7280'};background:#fafafa;margin-bottom:8px;border-radius:0 6px 6px 0;font-size:13px;color:#374151;">
-      ${a.alertType === 'negative_spike' ? '⚠️' : '📈'} ${a.message}
+      ${a.alertType === 'negative_spike' ? '⚠️' : '📈'} ${esc(a.message)}
     </div>`).join('');
 
   const dishRows = data.dishComplaints.slice(0, 3).map((d) => `
     <div style="padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
-      <strong style="text-transform:capitalize;">${d.dish}</strong>
+      <strong style="text-transform:capitalize;">${esc(d.dish)}</strong>
       <span style="color:#dc2626;margin-left:8px;">-${d.negativeMentions} negative / ${d.mentions} total</span>
     </div>`).join('');
 
   const staffRows = data.staffFlags.map((s) => `
     <div style="padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
-      <strong>${s.staffName}</strong>
+      <strong>${esc(s.staffName)}</strong>
       <span style="color:#dc2626;margin-left:8px;">${s.negativeMentions} negative mentions</span>
     </div>`).join('');
 
@@ -74,8 +78,8 @@ function buildDigestHtml(data: {
 
     <div style="background:#111827;padding:28px 32px;">
       <p style="margin:0;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Weekly Digest</p>
-      <h1 style="margin:4px 0 0;color:#fff;font-size:22px;">${data.restaurantName}</h1>
-      <p style="margin:4px 0 0;color:#6b7280;font-size:13px;">Week of ${data.weekOf}</p>
+      <h1 style="margin:4px 0 0;color:#fff;font-size:22px;">${esc(data.restaurantName)}</h1>
+      <p style="margin:4px 0 0;color:#6b7280;font-size:13px;">Week of ${esc(data.weekOf)}</p>
     </div>
 
     <div style="padding:28px 32px;">
@@ -186,12 +190,16 @@ class EmailService {
     });
 
     try {
-      await sgMail.send({
-        to: restaurant.ownerEmail,
-        from: { email: config.sendgrid.fromEmail, name: config.sendgrid.fromName },
-        subject: `📊 Weekly Digest — ${restaurant.name}`,
-        html,
-      });
+      await axios.post(
+        BREVO_API_URL,
+        {
+          sender: { email: config.brevo.fromEmail, name: config.brevo.fromName },
+          to: [{ email: restaurant.ownerEmail }],
+          subject: `📊 Weekly Digest — ${restaurant.name}`,
+          htmlContent: html,
+        },
+        { headers: { 'api-key': config.brevo.apiKey, 'content-type': 'application/json' } },
+      );
       logger.info(`[email] Digest sent to ${restaurant.ownerEmail} for ${restaurant.name}`);
       return true;
     } catch (err) {

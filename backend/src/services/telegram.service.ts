@@ -1,23 +1,5 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
-import { prisma } from '../db/client';
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  food_quality: '🍽️',
-  service: '🤝',
-  ambiance: '✨',
-  pricing: '💰',
-  hygiene: '🧹',
-  staff: '👤',
-  wait_time: '⏱️',
-  overall: '📊',
-};
-
-const PRIORITY_EMOJI: Record<string, string> = {
-  high: '🔴',
-  medium: '🟡',
-  low: '🟢',
-};
 
 class TelegramService {
   private get token(): string { return config.telegram.token; }
@@ -34,56 +16,6 @@ class TelegramService {
   async sendAlert(message: string): Promise<void> {
     if (!this.enabled) return;
     await this.send(message);
-  }
-
-  async sendInsightsSummary(restaurantId: string): Promise<void> {
-    if (!this.enabled) return;
-
-    const restaurant = await prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      select: { name: true },
-    });
-    if (!restaurant) return;
-
-    const [insights, alerts] = await Promise.all([
-      prisma.actionableInsight.findMany({
-        where: { restaurantId },
-        orderBy: { impactScore: 'desc' },
-        take: 5,
-      }),
-      prisma.velocityAlert.findMany({
-        where: { restaurantId, isActive: true },
-        orderBy: { triggeredAt: 'desc' },
-        take: 3,
-      }),
-    ]);
-
-    if (insights.length === 0) return;
-
-    const lines: string[] = [
-      `<b>📊 New Insights — ${restaurant.name}</b>`,
-      `<i>${new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}</i>`,
-      '',
-    ];
-
-    if (alerts.length > 0) {
-      lines.push('<b>🚨 Active Alerts</b>');
-      for (const a of alerts) {
-        lines.push(`• ${a.message}`);
-      }
-      lines.push('');
-    }
-
-    lines.push('<b>Top Insights</b>');
-    for (const ins of insights) {
-      const catEmoji = CATEGORY_EMOJI[ins.category] ?? '📌';
-      const priEmoji = PRIORITY_EMOJI[ins.priority] ?? '';
-      const score = ins.impactScore != null ? ` <i>(${(ins.impactScore * 100).toFixed(0)}%)</i>` : '';
-      lines.push(`${catEmoji} ${priEmoji} <b>${ins.category.replace(/_/g, ' ')}</b>${score}`);
-      lines.push(`  ${ins.insight}`);
-    }
-
-    await this.send(lines.join('\n'));
   }
 
   private async send(text: string): Promise<void> {

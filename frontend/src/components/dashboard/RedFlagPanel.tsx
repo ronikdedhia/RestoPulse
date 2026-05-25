@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 interface RedFlagReview {
   id: string;
   reviewerName: string | null;
@@ -10,7 +12,147 @@ interface RedFlagReview {
   source: string;
 }
 
-export function RedFlagPanel({ reviews }: { reviews: RedFlagReview[] }) {
+type Tone = 'formal' | 'apologetic' | 'assertive';
+
+const TONE_LABELS: Record<Tone, string> = {
+  apologetic: 'Apologetic',
+  formal: 'Formal',
+  assertive: 'Assertive',
+};
+
+const TONE_DESC: Record<Tone, string> = {
+  apologetic: 'Warm, takes responsibility',
+  formal: 'Professional, investigative',
+  assertive: 'Confident, addresses points',
+};
+
+async function fetchReplySuggestion(
+  reviewText: string,
+  restaurantName: string,
+  rating: number,
+  tone: Tone
+): Promise<string> {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reviews/reply-suggestion`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reviewText, restaurantName, rating, tone }),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error ?? 'Failed');
+  return data.data.reply as string;
+}
+
+function ReplyBox({ review, restaurantName }: { review: RedFlagReview; restaurantName: string }) {
+  const [open, setOpen] = useState(false);
+  const [tone, setTone] = useState<Tone>('apologetic');
+  const [reply, setReply] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const generate = async (selectedTone: Tone) => {
+    if (!review.text) return;
+    setLoading(true);
+    setError('');
+    setReply('');
+    setCopied(false);
+    try {
+      const text = await fetchReplySuggestion(review.text, restaurantName, review.rating, selectedTone);
+      setReply(text);
+    } catch {
+      setError('Could not generate reply. Try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToneChange = (t: Tone) => {
+    setTone(t);
+    if (open && reply) generate(t);
+  };
+
+  const handleOpen = () => {
+    setOpen(true);
+    if (!reply && !loading) generate(tone);
+  };
+
+  const copy = async () => {
+    if (!reply) return;
+    await navigator.clipboard.writeText(reply);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!review.text) return null;
+
+  return (
+    <div className="mt-2">
+      {!open ? (
+        <button
+          onClick={handleOpen}
+          className="text-xs text-white/40 hover:text-white/70 border border-white/10 hover:border-white/20 px-3 py-1 rounded-md transition-colors"
+        >
+          Suggest reply
+        </button>
+      ) : (
+        <div className="mt-2 space-y-2 border border-white/10 rounded-lg p-3 bg-white/[0.03]">
+          {/* Tone selector */}
+          <div className="flex gap-1.5 flex-wrap">
+            {(Object.keys(TONE_LABELS) as Tone[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => handleToneChange(t)}
+                title={TONE_DESC[t]}
+                className={`text-[11px] px-2.5 py-1 rounded-md border transition-colors ${
+                  tone === t
+                    ? 'bg-white/10 border-white/30 text-white'
+                    : 'border-white/10 text-white/40 hover:text-white/60 hover:border-white/20'
+                }`}
+              >
+                {TONE_LABELS[t]}
+              </button>
+            ))}
+          </div>
+
+          {/* Reply output */}
+          {loading && (
+            <p className="text-xs text-white/30 italic animate-pulse">Generating reply…</p>
+          )}
+          {error && (
+            <p className="text-xs text-red-400">{error}</p>
+          )}
+          {reply && !loading && (
+            <div className="space-y-2">
+              <p className="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">{reply}</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={copy}
+                  className="text-[11px] px-3 py-1 bg-white/10 hover:bg-white/15 text-white/70 rounded-md transition-colors"
+                >
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+                <button
+                  onClick={() => generate(tone)}
+                  className="text-[11px] px-3 py-1 border border-white/10 hover:border-white/20 text-white/40 hover:text-white/60 rounded-md transition-colors"
+                >
+                  Regenerate
+                </button>
+                <button
+                  onClick={() => { setOpen(false); setReply(''); }}
+                  className="text-[11px] text-white/20 hover:text-white/40 ml-auto transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function RedFlagPanel({ reviews, restaurantName = '' }: { reviews: RedFlagReview[]; restaurantName?: string }) {
   if (reviews.length === 0) return null;
 
   return (
@@ -57,6 +199,8 @@ export function RedFlagPanel({ reviews }: { reviews: RedFlagReview[] }) {
                   {review.text}
                 </p>
               )}
+
+              <ReplyBox review={review} restaurantName={restaurantName} />
             </div>
           );
         })}

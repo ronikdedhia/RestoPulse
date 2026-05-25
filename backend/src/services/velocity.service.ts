@@ -50,7 +50,7 @@ class VelocityService {
     // Upsert ReviewVelocity for each day
     for (const [isoDate, counts] of byDay) {
       const date = new Date(isoDate);
-      const avgRating = counts.ratings.reduce((a, b) => a + b, 0) / counts.ratings.length;
+      const avgRating = counts.ratings.length > 0 ? counts.ratings.reduce((a, b) => a + b, 0) / counts.ratings.length : null;
 
       await prisma.reviewVelocity.upsert({
         where: { restaurantId_date: { restaurantId, date } },

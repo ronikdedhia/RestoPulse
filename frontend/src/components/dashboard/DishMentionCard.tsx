@@ -9,10 +9,10 @@ interface DishMention {
 }
 
 export function DishMentionCard({ dish }: { dish: DishMention }) {
-  const neutral = dish.mentions - dish.positiveMentions - dish.negativeMentions;
-  const positiveWidth = Math.round((dish.positiveMentions / dish.mentions) * 100);
-  const negativeWidth = Math.round((dish.negativeMentions / dish.mentions) * 100);
-  const neutralWidth = 100 - positiveWidth - negativeWidth;
+  const neutral = Math.max(0, dish.mentions - dish.positiveMentions - dish.negativeMentions);
+  const positiveWidth = dish.mentions > 0 ? Math.round((dish.positiveMentions / dish.mentions) * 100) : 0;
+  const negativeWidth = dish.mentions > 0 ? Math.round((dish.negativeMentions / dish.mentions) * 100) : 0;
+  const neutralWidth = Math.max(0, 100 - positiveWidth - negativeWidth);
 
   const sentimentColor =
     dish.positiveMentions > dish.negativeMentions * 2

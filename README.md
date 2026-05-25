@@ -25,7 +25,7 @@ RestoPulse/
 | AI / Insights | GROQ (`llama-3.1-8b-instant`) |
 | Sentiment ML | HuggingFace (`cardiffnlp/twitter-roberta-base-sentiment-latest`) |
 | Auth | Clerk (`@clerk/nextjs` — manual JWT decode on backend) |
-| Email | SendGrid |
+| Email | Brevo (transactional REST API) |
 | Alerts | Telegram Bot API (real-time velocity + escalation alerts) |
 | Charts | Recharts |
 | Data Fetching | TanStack Query (React Query) |
@@ -70,11 +70,10 @@ RestoPulse/
    - escalationService.check() → persistent issue detection (3+ consecutive weeks)
      → Telegram alert when issue reaches 6 consecutive weeks
    - healthScoreService.compute() → composite 0-100 score (rating/sentiment/velocity/penalties)
-   - telegramService.sendInsightsSummary() → non-fatal Telegram push with fresh insight highlights
    - divergenceService.compute() → Google vs Zomato rating + sentiment gap analysis (on-demand API only)
    - customerSegmentService.analyze() → keyword-based audience segment breakdown (on-demand API only)
         ↓
-10. Weekly cron (Monday 8am IST): digestWorker sends SendGrid email to owners
+10. Weekly cron (Monday 8am IST): digestWorker sends Brevo email to owners
          with insights diff, velocity alerts, dish complaints, staff flags
 ```
 
@@ -362,6 +361,18 @@ All auth endpoints require `Authorization: Bearer <clerk-session-token>`.
 |---|---|---|
 | GET | `/api/reviews/restaurant/:id` | Paginated reviews (supports `?minRating=&maxRating=`) |
 | GET | `/api/reviews/restaurant/:id/stats` | Rating distribution + totals |
+| POST | `/api/reviews/reply-suggestion` | Generate LLM reply for a review (see body below) |
+
+**POST `/api/reviews/reply-suggestion` body:**
+```json
+{
+  "reviewText": "The food was cold and staff was rude.",
+  "restaurantName": "Bademiya",
+  "rating": 2,
+  "tone": "apologetic"
+}
+```
+`tone` options: `formal` | `apologetic` | `assertive`
 
 ### Insights & Analytics
 
@@ -474,11 +485,11 @@ CLERK_SECRET_KEY=<your-clerk-secret-key>
 MAX_REVIEWS_PER_RESTAURANT=10
 MAX_ZOMATO_REVIEWS_PER_RESTAURANT=5
 
-# SendGrid (weekly digest email)
-SENDGRID_EMAIL_API_KEY=<your-key>
-SENDGRID_FROM_EMAIL=noreply@restopulse.com
-SENDGRID_FROM_NAME=RestoPulse
-NEWSLETTER_SEND_TIME=02:30          # digest send time (default 02:30 UTC)
+# Brevo (weekly digest email)
+BREVO_API_KEY=<your-key>
+BREVO_FROM_EMAIL=noreply@brevo.net
+BREVO_FROM_NAME=Resto Pulse
+NEWSLETTER_SEND_TIME=08:00          # digest send time IST (default 08:00 = Monday 8am IST)
 BACKEND_URL=http://localhost:3001   # used in unsubscribe links
 
 # HuggingFace (ML sentiment — optional, falls back to GROQ-based sentiment)
@@ -511,13 +522,14 @@ NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
 Two BullMQ repeatable jobs register on startup — both idempotent (server restarts do not create duplicates).
 
 ### Daily Scrape — `daily-scrape-all`
-- Pattern: `30 23 * * *` (hardcoded in `queues/index.ts` as `CRON_PATTERN`)
+- Pattern: `0 18 * * *` (18:00 UTC = 11:30 PM IST, hardcoded in `queues/index.ts` as `CRON_PATTERN`)
+- Scrapes reviews posted **today** (IST date) — not yesterday
 - For each active restaurant: queues a Google scrape and/or Zomato scrape job
 - Each scrape triggers: velocity compute → fake review scoring → price sensitivity compute → insight generation
 
 ### Weekly Digest — `weekly-digest-all`
-- Pattern: derived from `NEWSLETTER_SEND_TIME` env var (default `02:30` UTC = Monday 8am IST)
-- Sends HTML email via SendGrid to all restaurants with `ownerEmail` set and `digestEnabled=true`
+- Pattern: derived from `NEWSLETTER_SEND_TIME` env var (default `08:00` IST = Monday 8am IST)
+- Sends HTML email via **Brevo** to all restaurants with `ownerEmail` set and `digestEnabled=true`
 - Email includes: velocity alerts, persistent issues, top 3 insights with trend badges, dish complaints, staff flags
 - Unsubscribe is handled server-side at `GET /api/insights/digest/unsubscribe/:token`
 
@@ -578,7 +590,7 @@ backend/src/
 │   ├── customerSegment.service.ts  Keyword-based audience segment analysis (last 60 days)
 │   ├── huggingFace.service.ts   ML sentiment via cardiffnlp/twitter-roberta (batched, 32/req)
 │   ├── telegram.service.ts      Telegram Bot real-time alerts
-│   └── email.service.ts         SendGrid digest builder + sender
+│   └── email.service.ts         Brevo digest builder + sender (axios REST)
 ├── routes/
 │   ├── restaurants.route.ts     CRUD + scrape + digest + events + health-score
 │   ├── reviews.route.ts         Paginated reviews + stats
@@ -683,9 +695,9 @@ curl -X PATCH http://localhost:3001/api/restaurants/<id>/digest \
 - [x] Source Divergence Detection — Google vs Zomato rating + sentiment gap, flags platform-specific experience issues
 - [x] Customer Segment Analysis — keyword-based audience breakdown (families, couples, office, groups, solo) with per-segment avg rating + sentiment
 - [x] HuggingFace ML Sentiment — `cardiffnlp/twitter-roberta-base-sentiment-latest`, batched (32/req), optional (falls back gracefully)
-- [x] Weekly Digest Email — SendGrid HTML, insights diff + alerts + dishes + staff flags
+- [x] Weekly Digest Email — Brevo transactional API, insights diff + alerts + dishes + staff flags
 - [x] Digest unsubscribe — token-based, one-click, server-side
-- [x] Telegram Real-Time Alerts — velocity spike + persistent issue week-6 threshold + post-insight summary
+- [x] Telegram Real-Time Alerts — velocity spike + persistent issue week-6 threshold (no general insight summary — critical alerts only)
 - [x] Restaurant Health Score — composite 0–100 (rating 30% + sentiment 25% + velocity 20% – penalties 25%)
 - [x] Owner Event Log — operational change markers (head chef change, menu relaunch, etc.)
 - [x] Clerk Auth — `@clerk/nextjs` frontend, manual JWT decode on backend, RestaurantOwnership model
@@ -707,7 +719,7 @@ curl -X PATCH http://localhost:3001/api/restaurants/<id>/digest \
 - [x] DigestConfig (inline email + toggle)
 - [x] HealthScoreCard (radial gauge + component breakdown bars)
 - [x] OwnerEventLog (inline add / delete with date picker)
-- [x] RedFlagPanel (critical keyword reviews with severity badges + date + source)
+- [x] RedFlagPanel (critical keyword reviews with severity badges + date + source + **owner reply suggestion** — 3 tone options, copy + regenerate)
 - [x] FakeReviewPanel updated — source badge (Google/Zomato) + review date visible
 - [x] CustomerSegmentCard — segment rows with sentiment bar + avg rating colour coding
 - [x] SourceDivergenceCard — side-by-side Google/Zomato stat columns + divergence badge

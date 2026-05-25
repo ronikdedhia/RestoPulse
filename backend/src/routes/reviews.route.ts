@@ -1,7 +1,35 @@
 import { Router, Request, Response } from 'express';
 import { reviewService } from '../services/review.service';
+import { groqService } from '../services/groq.service';
 
 const router = Router();
+
+router.post('/reply-suggestion', async (req: Request, res: Response) => {
+  try {
+    const { reviewText, restaurantName, rating, tone } = req.body;
+
+    if (!reviewText || typeof reviewText !== 'string' || reviewText.trim().length < 5) {
+      return res.status(400).json({ success: false, error: 'reviewText is required' });
+    }
+    if (!restaurantName || typeof restaurantName !== 'string') {
+      return res.status(400).json({ success: false, error: 'restaurantName is required' });
+    }
+    if (!['formal', 'apologetic', 'assertive'].includes(tone)) {
+      return res.status(400).json({ success: false, error: 'tone must be formal | apologetic | assertive' });
+    }
+
+    const reply = await groqService.generateReviewReply(
+      reviewText.trim(),
+      restaurantName,
+      typeof rating === 'number' ? rating : 1,
+      tone as 'formal' | 'apologetic' | 'assertive'
+    );
+
+    res.json({ success: true, data: { reply } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to generate reply' });
+  }
+});
 
 router.get('/restaurant/:restaurantId', async (req: Request, res: Response) => {
   try {

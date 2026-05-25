@@ -188,7 +188,7 @@ export default function RestaurantPage({ params }: { params: { id: string } }) {
         {redFlags && redFlags.length > 0 && (
           <div className="space-y-3">
             <h2 className="text-base font-semibold text-red-400">Critical Action Required</h2>
-            <RedFlagPanel reviews={redFlags} />
+            <RedFlagPanel reviews={redFlags} restaurantName={restaurant?.name ?? ''} />
           </div>
         )}
 
@@ -252,16 +252,28 @@ export default function RestaurantPage({ params }: { params: { id: string } }) {
         )}
 
         {/* Dish mentions */}
-        {dishes && dishes.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-base font-semibold text-white/70">Dish Mentions</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {dishes.map((dish: any) => (
-                <DishMentionCard key={dish.id} dish={dish} />
-              ))}
+        {dishes && dishes.length > 0 && (() => {
+          const GENERIC_TERMS = new Set([
+            'food', 'foods', 'item', 'items', 'dish', 'dishes', 'meal', 'meals',
+            'order', 'orders', 'drink', 'drinks', 'beverage', 'beverages',
+            'stuff', 'things', 'everything', 'nothing', 'something', 'anything',
+            'place', 'service', 'experience', 'menu', 'taste', 'quality',
+          ]);
+          const filtered = dishes.filter(
+            (d: any) => !GENERIC_TERMS.has(d.dish?.toLowerCase()?.trim())
+          );
+          if (filtered.length === 0) return null;
+          return (
+            <div className="space-y-3">
+              <h2 className="text-base font-semibold text-white/70">Dish Mentions</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {filtered.map((dish: any) => (
+                  <DishMentionCard key={dish.id} dish={dish} />
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Staff tracking */}
         {staff && staff.length > 0 && (

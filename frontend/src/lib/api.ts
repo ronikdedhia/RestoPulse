@@ -1,5 +1,9 @@
 import axios from 'axios';
 
+if (typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_API_URL) {
+  console.warn('[RestoPulse] NEXT_PUBLIC_API_URL is not set — falling back to http://localhost:3001');
+}
+
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001',
   timeout: 30_000,

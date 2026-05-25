@@ -17,11 +17,11 @@ function parseInsight(ins: {
   reviewPeriod: string | null;
   generatedAt: Date;
 }) {
-  return {
-    ...ins,
-    keyThemes: ins.keyThemes ? JSON.parse(ins.keyThemes) : [],
-    reviewPeriod: ins.reviewPeriod ? JSON.parse(ins.reviewPeriod) : null,
-  };
+  let keyThemes: string[] = [];
+  let reviewPeriod: unknown = null;
+  try { keyThemes = ins.keyThemes ? JSON.parse(ins.keyThemes) : []; } catch { keyThemes = []; }
+  try { reviewPeriod = ins.reviewPeriod ? JSON.parse(ins.reviewPeriod) : null; } catch { reviewPeriod = null; }
+  return { ...ins, keyThemes, reviewPeriod };
 }
 
 function getMondayOf(date: Date): Date {
@@ -53,21 +53,22 @@ class InsightService {
     // Snapshot current insights before replacing them
     await this.snapshotCurrentInsights(restaurantId);
 
-    await prisma.actionableInsight.deleteMany({ where: { restaurantId } });
-
-    await prisma.actionableInsight.createMany({
-      data: result.insights.map((ins) => ({
-        restaurantId,
-        category: ins.category,
-        insight: ins.insight,
-        priority: ins.priority,
-        overallSentiment: ins.overallSentiment,
-        evidenceCount: ins.evidenceCount,
-        keyThemes: JSON.stringify(ins.keyThemes),
-        suggestedAction: ins.suggestedAction,
-        impactScore: ins.impactScore,
-        reviewPeriod: JSON.stringify(result.reviewPeriod),
-      })),
+    await prisma.$transaction(async (tx) => {
+      await tx.actionableInsight.deleteMany({ where: { restaurantId } });
+      await tx.actionableInsight.createMany({
+        data: result.insights.map((ins) => ({
+          restaurantId,
+          category: ins.category,
+          insight: ins.insight,
+          priority: ins.priority,
+          overallSentiment: ins.overallSentiment,
+          evidenceCount: ins.evidenceCount,
+          keyThemes: JSON.stringify(ins.keyThemes),
+          suggestedAction: ins.suggestedAction,
+          impactScore: ins.impactScore,
+          reviewPeriod: JSON.stringify(result.reviewPeriod),
+        })),
+      });
     });
 
     logger.info(`Generated ${result.insights.length} insights for ${restaurant.name}`);
@@ -80,16 +81,17 @@ class InsightService {
 
     const weekStart = getMondayOf(new Date());
 
-    // Replace snapshot for this week (idempotent re-runs)
-    await prisma.insightSnapshot.deleteMany({ where: { restaurantId, weekStart } });
-    await prisma.insightSnapshot.createMany({
-      data: current.map((ins) => ({
-        restaurantId,
-        weekStart,
-        category: ins.category,
-        impactScore: ins.impactScore ?? 0,
-        priority: ins.priority,
-      })),
+    await prisma.$transaction(async (tx) => {
+      await tx.insightSnapshot.deleteMany({ where: { restaurantId, weekStart } });
+      await tx.insightSnapshot.createMany({
+        data: current.map((ins) => ({
+          restaurantId,
+          weekStart,
+          category: ins.category,
+          impactScore: ins.impactScore ?? 0,
+          priority: ins.priority,
+        })),
+      });
     });
 
     logger.info(`Snapshotted ${current.length} insights for ${restaurantId} (week ${weekStart.toISOString().split('T')[0]})`);
@@ -184,16 +186,18 @@ class InsightService {
 
     const result = await groqService.extractDishMentions(restaurant.name, reviews);
 
-    await prisma.dishMention.deleteMany({ where: { restaurantId } });
     if (result.dishes.length > 0) {
-      await prisma.dishMention.createMany({
-        data: result.dishes.map((d) => ({
-          restaurantId,
-          dish: d.dish,
-          mentions: d.mentions,
-          positiveMentions: d.positiveMentions,
-          negativeMentions: d.negativeMentions,
-        })),
+      await prisma.$transaction(async (tx) => {
+        await tx.dishMention.deleteMany({ where: { restaurantId } });
+        await tx.dishMention.createMany({
+          data: result.dishes.map((d) => ({
+            restaurantId,
+            dish: d.dish,
+            mentions: d.mentions,
+            positiveMentions: d.positiveMentions,
+            negativeMentions: d.negativeMentions,
+          })),
+        });
       });
     }
 
@@ -220,16 +224,18 @@ class InsightService {
 
     const result = await groqService.extractStaffMentions(restaurant.name, reviews);
 
-    await prisma.staffMention.deleteMany({ where: { restaurantId } });
     if (result.staff.length > 0) {
-      await prisma.staffMention.createMany({
-        data: result.staff.map((s) => ({
-          restaurantId,
-          staffName: s.name,
-          mentions: s.mentions,
-          positiveMentions: s.positiveMentions,
-          negativeMentions: s.negativeMentions,
-        })),
+      await prisma.$transaction(async (tx) => {
+        await tx.staffMention.deleteMany({ where: { restaurantId } });
+        await tx.staffMention.createMany({
+          data: result.staff.map((s) => ({
+            restaurantId,
+            staffName: s.name,
+            mentions: s.mentions,
+            positiveMentions: s.positiveMentions,
+            negativeMentions: s.negativeMentions,
+          })),
+        });
       });
     }
 
