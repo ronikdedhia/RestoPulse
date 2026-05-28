@@ -2,8 +2,8 @@ name: Keep Render Alive
 
 on:
   schedule:
-    # Every 14 min, Mon-Fri, 10am-8pm IST (4:30am-2:30pm UTC)
-    - cron: '*/14 4-14 * * 1-5'
+    # Every 14 min, Mon-Sat, 10am-6pm IST (4:30am-12:30pm UTC)
+    - cron: '*/14 4-12 * * 1-6'
   workflow_dispatch:
 
 jobs:
@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Ping RestoPulse
         run: curl -f https://restopulse.onrender.com/health
-      # - name: Ping Project 2
-      #   run: curl -f https://<project-2>.onrender.com/health
-      # - name: Ping Project 3
-      #   run: curl -f https://<project-3>.onrender.com/health
+      - name: Ping Earnings Lens
+        run: curl -f https://earningslens-vh6j.onrender.com/health
+      - name: Ping NEWS AI
+        run: curl -f https://daily-bytes-ai.onrender.com/health

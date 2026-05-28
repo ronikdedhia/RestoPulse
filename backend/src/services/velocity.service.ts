@@ -71,6 +71,14 @@ class VelocityService {
       });
     }
 
+    // Remember which alert types were already active so we don't re-notify for ongoing surges
+    const previouslyActiveTypes = new Set(
+      (await prisma.velocityAlert.findMany({
+        where: { restaurantId, isActive: true },
+        select: { alertType: true },
+      })).map(a => a.alertType)
+    );
+
     // Resolve all active alerts before re-evaluating
     await prisma.velocityAlert.updateMany({
       where: { restaurantId, isActive: true },
@@ -120,8 +128,10 @@ class VelocityService {
         data: { restaurantId, alertType: 'negative_spike', severity, message: msg, reviewsPerDay: avgNegCurrent, baseline: avgNegBaseline },
       });
 
-      const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { name: true } });
-      await telegramService.sendAlert(`🚨 <b>${restaurant?.name ?? restaurantId}</b>\n${msg}`);
+      if (!previouslyActiveTypes.has('negative_spike')) {
+        const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { name: true } });
+        await telegramService.sendAlert(`🚨 <b>${restaurant?.name ?? restaurantId}</b>\n${msg}`);
+      }
     }
 
     // Positive spike
@@ -140,8 +150,10 @@ class VelocityService {
         data: { restaurantId, alertType: 'positive_spike', severity, message: msg, reviewsPerDay: avgPosCurrent, baseline: avgPosBaseline },
       });
 
-      const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { name: true } });
-      await telegramService.sendAlert(`📈 <b>${restaurant?.name ?? restaurantId}</b>\n${msg}`);
+      if (!previouslyActiveTypes.has('positive_spike')) {
+        const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { name: true } });
+        await telegramService.sendAlert(`📈 <b>${restaurant?.name ?? restaurantId}</b>\n${msg}`);
+      }
     }
 
     logger.info(`[velocity] Computed for ${restaurantId}: neg=${avgNegCurrent.toFixed(2)}/d pos=${avgPosCurrent.toFixed(2)}/d`);
