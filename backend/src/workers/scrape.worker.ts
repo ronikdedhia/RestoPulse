@@ -12,6 +12,7 @@ import { insightsQueue, scrapeQueue } from '../queues';
 import { prisma } from '../db/client';
 import { logger } from '../utils/logger';
 import { ScrapeJobData } from '../types';
+import { telegramService } from '../services/telegram.service';
 
 async function handleDailyScrapeAll() {
   logger.info('[daily-cron] Triggered — queuing scrape jobs');
@@ -51,6 +52,11 @@ async function handleDailyScrapeAll() {
   }
 
   logger.info(`[daily-cron] Queued ${googleQueued} Google + ${zomatoQueued} Zomato jobs across ${restaurants.length} restaurants`);
+
+  const now = new Date();
+  const dateIST = now.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
+  await telegramService.sendDailyHeartbeat({ restaurants: restaurants.length, googleQueued, zomatoQueued, dateIST });
+
   return { google: googleQueued, zomato: zomatoQueued };
 }
 
