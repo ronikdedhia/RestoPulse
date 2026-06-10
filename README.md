@@ -1,5 +1,7 @@
 # RestoPulse
 
+**Live:** https://resto-pulse-frontend.vercel.app/
+
 AI-powered restaurant review analytics platform for Mumbai. Scrapes reviews from Google Maps and Zomato via Apify, processes them with GROQ (Llama 3.1) to generate PM-level actionable insights, and displays them on a Next.js dashboard.
 
 ---
