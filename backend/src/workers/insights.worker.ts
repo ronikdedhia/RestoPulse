@@ -4,6 +4,7 @@ import { config } from '../config';
 import { runInsightGraph } from '../services/insight.graph';
 import { escalationService } from '../services/escalation.service';
 import { healthScoreService } from '../services/healthScore.service';
+import { telegramService } from '../services/telegram.service';
 import { prisma } from '../db/client';
 import { logger } from '../utils/logger';
 import { InsightsJobData } from '../types';
@@ -25,7 +26,7 @@ export function createInsightsWorker() {
 
       try {
         // LangGraph pipeline: loadData → [generateInsights || extractDishes || extractStaff] → persistAll
-        const count = await runInsightGraph(restaurantId);
+        const { insightCount, errors, restaurantName } = await runInsightGraph(restaurantId);
 
         try {
           await escalationService.check(restaurantId);
@@ -33,11 +34,40 @@ export function createInsightsWorker() {
           logger.warn(`[insights-worker] Escalation check failed for ${restaurantId}: ${escErr instanceof Error ? escErr.message : String(escErr)}`);
         }
 
+        let healthScore: number | null = null;
         try {
-          await healthScoreService.compute(restaurantId);
+          healthScore = await healthScoreService.compute(restaurantId);
         } catch (hsErr) {
           logger.warn(`[insights-worker] Health score failed for ${restaurantId}: ${hsErr instanceof Error ? hsErr.message : String(hsErr)}`);
         }
+
+        // Telegram summary after all processing completes
+        try {
+          const [insights, dishes, staff] = await Promise.all([
+            prisma.actionableInsight.findMany({
+              where: { restaurantId },
+              orderBy: [{ priority: 'asc' }, { impactScore: 'desc' }],
+              take: 3,
+              select: { category: true, insight: true, priority: true },
+            }),
+            prisma.dishMention.count({ where: { restaurantId } }),
+            prisma.staffMention.count({ where: { restaurantId } }),
+          ]);
+
+          await telegramService.sendInsightsSummary({
+            restaurantName,
+            insightCount,
+            healthScore,
+            topInsights: insights,
+            dishCount: dishes,
+            staffCount: staff,
+            errors,
+          });
+        } catch (tgErr) {
+          logger.warn(`[insights-worker] Telegram summary failed: ${tgErr instanceof Error ? tgErr.message : String(tgErr)}`);
+        }
+
+        const count = insightCount;
 
         if (jobDbId) {
           await prisma.scrapeJob.update({

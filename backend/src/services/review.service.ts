@@ -42,11 +42,17 @@ class ReviewService {
     for (const review of reviews) {
       try {
         const id = review.reviewId ?? review.id;
-        const text = review.review ?? review.text ?? review.reviewText;
-        const rawRating = review.rating ?? review.stars;
+        const text = review.reviewText ?? review.review ?? review.text ?? null;
+        const reviewerName = review.userName ?? review.reviewerName ?? review.name ?? null;
+
+        // ratingV2 is a string like "5"; fallback to numeric rating for old actor
+        const rawRating = review.ratingV2
+          ? parseInt(review.ratingV2 as string, 10)
+          : (typeof review.rating === 'number' ? review.rating : null) ?? review.stars ?? null;
         const rating = rawRating ? Math.round(rawRating) : null;
-        const dateStr = review.timestamp ?? review.reviewDate ?? review.publishedAt;
-        const reviewerName = review.reviewerName ?? review.name;
+
+        // timestamp from new actor is relative ("16 days ago") — not a real date
+        const dateStr = review.reviewDate ?? review.publishedAt ?? null;
 
         if (!rating) { logger.warn('[review] Zomato review missing rating, skipping'); continue; }
 

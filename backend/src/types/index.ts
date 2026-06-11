@@ -4,7 +4,7 @@ export const ApifyReviewSchema = z.object({
   reviewId: z.string().optional(),
   name: z.string().optional(),           // reviewer name
   stars: z.number().int().min(1).max(5),
-  text: z.string().optional(),
+  text: z.string().nullish(),
   publishedAtDate: z.string().optional(),
   language: z.string().optional(),
   // Restaurant metadata — same value on every review item for a given place
@@ -72,15 +72,22 @@ export const InsightsResponseSchema = z.object({
 export type InsightsResponse = z.infer<typeof InsightsResponseSchema>;
 
 export const ZomatoReviewSchema = z.object({
-  reviewId: z.string().optional(),
-  id: z.string().optional(),
-  reviewerName: z.string().optional(),
+  // id — old actor: string, new actor: number
+  reviewId: z.union([z.string(), z.number()]).optional(),
+  id: z.union([z.string(), z.number()]).optional(),
+  // reviewer name
+  userName: z.string().optional(),       // new actor
+  reviewerName: z.string().optional(),   // old actor
   name: z.string().optional(),
-  rating: z.number().optional(),
+  // rating — new actor: ratingV2 string ("5"), old actor: rating number
+  ratingV2: z.string().optional(),
+  rating: z.union([z.number(), z.record(z.unknown())]).optional(),
   stars: z.number().optional(),
+  // text
+  reviewText: z.string().optional(),
   review: z.string().optional(),
   text: z.string().optional(),
-  reviewText: z.string().optional(),
+  // date
   timestamp: z.string().optional(),
   reviewDate: z.string().optional(),
   publishedAt: z.string().optional(),

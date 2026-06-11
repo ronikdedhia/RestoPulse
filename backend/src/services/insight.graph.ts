@@ -177,9 +177,14 @@ async function extractDishesNode(state: InsightStateType): Promise<Partial<Insig
       .map((r) => `[${r.rating}★] ${r.text!.slice(0, 300)}`)
       .join('\n');
 
-    const raw = await dishChain.invoke({ restaurantName: state.restaurantName, reviewTexts });
+    const rawResult = await dishChain.invoke({ restaurantName: state.restaurantName, reviewTexts });
 
-    const parsed = DishMentionsResponseSchema.safeParse(raw);
+    // LLM sometimes returns mentions:0 — strip before Zod validation
+    if (rawResult && Array.isArray(rawResult.dishes)) {
+      rawResult.dishes = rawResult.dishes.filter((d: { mentions?: number }) => (d.mentions ?? 0) >= 1);
+    }
+
+    const parsed = DishMentionsResponseSchema.safeParse(rawResult);
     if (!parsed.success) {
       logger.warn(`[graph] Dishes Zod validation failed: ${parsed.error.message}`);
       return { dishes: null, errors: { extractDishes: parsed.error.message } };
@@ -204,9 +209,12 @@ async function extractStaffNode(state: InsightStateType): Promise<Partial<Insigh
       .map((r) => `[${r.rating}★] ${r.text!.slice(0, 150)}`)
       .join('\n');
 
-    const raw = await staffChain.invoke({ restaurantName: state.restaurantName, reviewTexts });
+    const rawResult = await staffChain.invoke({ restaurantName: state.restaurantName, reviewTexts });
 
-    const parsed = StaffMentionsResponseSchema.safeParse(raw);
+    // LLM sometimes returns a bare array instead of {staff:[...]}
+    const normalized = Array.isArray(rawResult) ? { staff: rawResult } : rawResult;
+
+    const parsed = StaffMentionsResponseSchema.safeParse(normalized);
     if (!parsed.success) {
       logger.warn(`[graph] Staff Zod validation failed: ${parsed.error.message}`);
       return { staff: null, errors: { extractStaff: parsed.error.message } };
@@ -318,7 +326,13 @@ const insightGraph = new StateGraph(InsightState)
   .addEdge('persistAll', END)
   .compile({ checkpointer });
 
-export async function runInsightGraph(restaurantId: string): Promise<number> {
+export interface InsightGraphResult {
+  insightCount: number;
+  restaurantName: string;
+  errors: Record<string, string>;
+}
+
+export async function runInsightGraph(restaurantId: string): Promise<InsightGraphResult> {
   const result = await insightGraph.invoke(
     { restaurantId },
     { configurable: { thread_id: restaurantId } }
@@ -328,5 +342,9 @@ export async function runInsightGraph(restaurantId: string): Promise<number> {
     logger.warn(`[graph] ${restaurantId} completed with errors: ${JSON.stringify(result.errors)}`);
   }
 
-  return result.insightCount as number;
+  return {
+    insightCount: result.insightCount as number,
+    restaurantName: result.restaurantName as string,
+    errors: result.errors as Record<string, string>,
+  };
 }

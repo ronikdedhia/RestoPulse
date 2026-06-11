@@ -42,7 +42,7 @@ export const config = {
   apify: {
     token: required('APIFY_TOKEN'),
     actorId: optional('APIFY_ACTOR_ID', 'compass~google-maps-reviews-scraper'),
-    zomatoActorId: optional('APIFY_ZOMATO_ACTOR_ID', 'emastra~zomato-reviews-scraper'),
+    zomatoActorId: optional('APIFY_ZOMATO_ACTOR_ID', 'easyapi~zomato-restaurant-reviews-scraper'),
   },
 
   groq: {

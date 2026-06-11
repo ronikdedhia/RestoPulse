@@ -8,6 +8,16 @@ interface HeartbeatStats {
   dateIST: string;
 }
 
+export interface InsightsSummary {
+  restaurantName: string;
+  insightCount: number;
+  healthScore: number | null;
+  topInsights: Array<{ category: string; insight: string; priority: string }>;
+  dishCount: number;
+  staffCount: number;
+  errors: Record<string, string>;
+}
+
 class TelegramService {
   private get token(): string { return config.telegram.token; }
 
@@ -33,7 +43,30 @@ class TelegramService {
       `✅ App alive on Render\n` +
       `🏪 Active restaurants: <b>${stats.restaurants}</b>\n` +
       `🔄 Jobs queued: <b>${stats.googleQueued} Google + ${stats.zomatoQueued} Zomato</b>\n\n` +
-      `⏰ Next run: 11:30 PM IST`;
+      `⏰ Next run: 12:00 PM IST`;
+    await this.send(msg);
+  }
+
+  async sendInsightsSummary(summary: InsightsSummary): Promise<void> {
+    if (!this.enabled) return;
+
+    const priorityEmoji: Record<string, string> = { high: '🔴', medium: '🟡', low: '🟢' };
+    const topLines = summary.topInsights
+      .slice(0, 3)
+      .map((i) => `${priorityEmoji[i.priority] ?? '⚪'} <b>${i.category.replace('_', ' ')}</b>: ${i.insight}`)
+      .join('\n');
+
+    const errorNote = Object.keys(summary.errors).length > 0
+      ? `\n⚠️ Partial errors: ${Object.keys(summary.errors).join(', ')}`
+      : '';
+
+    const msg =
+      `🍽️ <b>${summary.restaurantName}</b> — Insights updated\n\n` +
+      `📈 Health score: <b>${summary.healthScore !== null ? `${summary.healthScore}/100` : 'N/A'}</b>\n` +
+      `💡 ${summary.insightCount} insights · 🍛 ${summary.dishCount} dishes · 👤 ${summary.staffCount} staff\n\n` +
+      `<b>Top findings:</b>\n${topLines}` +
+      errorNote;
+
     await this.send(msg);
   }
 
