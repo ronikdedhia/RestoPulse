@@ -2,8 +2,8 @@ name: Keep Render Alive
 
 on:
   schedule:
-    # Every 14 min, Mon-Fri, 10am-6pm IST (4:30am-12:30pm UTC)
-    - cron: '*/14 4-12 * * 1-5'
+    # Every 14 min, all week, 8:30am-7:30pm IST (3am-2pm UTC)
+    - cron: '*/14 3-14 * * *'
   workflow_dispatch:
 
 jobs:
@@ -11,8 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping RestoPulse
+        continue-on-error: true
         run: curl -f https://restopulse.onrender.com/health
       - name: Ping Earnings Lens
+        continue-on-error: true
         run: curl -f https://earningslens-vh6j.onrender.com/health
       - name: Ping NEWS AI
+        continue-on-error: true
         run: curl -f https://daily-bytes-ai.onrender.com/health
