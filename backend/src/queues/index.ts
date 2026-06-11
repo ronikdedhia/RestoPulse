@@ -4,12 +4,12 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { ScrapeJobData, InsightsJobData } from '../types';
 
-// NEWSLETTER_SEND_TIME is HH:MM UTC (default 02:30 = Monday 8am IST)
+// NEWSLETTER_SEND_TIME is HH:MM UTC (default 07:30 = Monday 1pm IST)
 function buildDigestCron(): string {
   const [hh, mm] = config.brevo.newsletterSendTime.split(':').map(Number);
   if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
-    logger.warn(`[cron] Invalid NEWSLETTER_SEND_TIME "${config.brevo.newsletterSendTime}", falling back to 02:30 UTC`);
-    return '30 2 * * 1';
+    logger.warn(`[cron] Invalid NEWSLETTER_SEND_TIME "${config.brevo.newsletterSendTime}", falling back to 07:30 UTC`);
+    return '30 7 * * 1';
   }
   return `${mm} ${hh} * * 1`;
 }
@@ -63,7 +63,7 @@ export async function scheduleWeeklyDigest() {
   logger.info(`[cron] weekly-digest-all registered — pattern: "${WEEKLY_DIGEST_CRON}"`);
 }
 
-const CRON_PATTERN = '0 18 * * *'; // 11:30 PM IST (UTC+5:30)
+const CRON_PATTERN = '30 6 * * *'; // 12:00 PM IST (UTC+5:30)
 
 export async function scheduleDailyCron() {
   const existing = await scrapeQueue.getRepeatableJobs();

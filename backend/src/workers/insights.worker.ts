@@ -1,7 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import { createRedis } from '../config/redis';
 import { config } from '../config';
-import { insightService } from '../services/insight.service';
+import { runInsightGraph } from '../services/insight.graph';
 import { escalationService } from '../services/escalation.service';
 import { healthScoreService } from '../services/healthScore.service';
 import { prisma } from '../db/client';
@@ -24,20 +24,8 @@ export function createInsightsWorker() {
       }
 
       try {
-        const count = await insightService.generateForRestaurant(restaurantId);
-
-        // Dish + staff extraction run after insights — failures are non-fatal
-        try {
-          await insightService.extractDishMentions(restaurantId);
-        } catch (dishErr) {
-          logger.warn(`[insights-worker] Dish extraction failed for ${restaurantId}: ${dishErr instanceof Error ? dishErr.message : String(dishErr)}`);
-        }
-
-        try {
-          await insightService.extractStaffMentions(restaurantId);
-        } catch (staffErr) {
-          logger.warn(`[insights-worker] Staff extraction failed for ${restaurantId}: ${staffErr instanceof Error ? staffErr.message : String(staffErr)}`);
-        }
+        // LangGraph pipeline: loadData → [generateInsights || extractDishes || extractStaff] → persistAll
+        const count = await runInsightGraph(restaurantId);
 
         try {
           await escalationService.check(restaurantId);

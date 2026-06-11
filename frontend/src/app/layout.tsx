@@ -9,6 +9,7 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'RestoPulse — Restaurant Intelligence',
   description: 'AI-powered analytics for Mumbai restaurant owners',
+  icons: { icon: '/icon.svg', shortcut: '/icon.svg' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

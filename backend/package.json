@@ -17,6 +17,9 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@langchain/core": "^1.1.48",
+    "@langchain/groq": "^1.2.1",
+    "@langchain/langgraph": "^1.4.1",
     "@libsql/client": "^0.8.0",
     "@prisma/adapter-libsql": "^5.22.0",
     "@prisma/client": "^5.22.0",
@@ -30,6 +33,7 @@
     "groq-sdk": "^0.9.0",
     "helmet": "^8.0.0",
     "ioredis": "^5.4.1",
+    "langchain": "^1.4.4",
     "zod": "^3.24.1"
   },
   "devDependencies": {
