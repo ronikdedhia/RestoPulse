@@ -29,6 +29,6 @@ export function createDigestWorker() {
     logger.error(`[digest-worker] Worker error: ${err.message}`);
   });
 
-  logger.info('[digest-worker] Worker created and listening on queue "digest"');
+  logger.info('[digest-worker] Ready');
   return worker;
 }

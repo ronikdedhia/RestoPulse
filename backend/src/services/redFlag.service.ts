@@ -26,7 +26,17 @@ class RedFlagService {
       select: { id: true, text: true, reviewerName: true, rating: true },
     });
 
+    // Keywords already known from previously flagged reviews — don't re-alert these
+    const existing = await prisma.review.findMany({
+      where: { restaurantId, isRedFlag: true },
+      select: { redFlagWords: true },
+    });
+    const knownKeywords = new Set(
+      existing.flatMap((r) => (r.redFlagWords ?? '').split(', ').map((k) => k.trim())).filter(Boolean)
+    );
+
     let flagged = 0;
+    const newKeywords = new Set<string>();
 
     for (const review of reviews) {
       const matched = matchKeywords(review.text!);
@@ -37,11 +47,15 @@ class RedFlagService {
         data: { isRedFlag: true, redFlagWords: matched.join(', ') },
       });
       flagged++;
+      matched.forEach((kw) => { if (!knownKeywords.has(kw)) newKeywords.add(kw); });
     }
 
-    if (flagged > 0) {
-      logger.info(`[red-flag] ${restaurantId} — flagged ${flagged} critical reviews`);
-      await this.sendAlert(restaurantId, flagged);
+    if (flagged > 0) logger.info(`[red-flag] ${restaurantId} — flagged ${flagged} reviews`);
+
+    // Only alert on keyword types not seen before for this restaurant
+    if (newKeywords.size > 0) {
+      logger.info(`[red-flag] ${restaurantId} — new keywords: ${[...newKeywords].join(', ')}`);
+      await this.sendAlert(restaurantId, [...newKeywords]);
     }
 
     return flagged;
@@ -64,26 +78,17 @@ class RedFlagService {
     });
   }
 
-  private async sendAlert(restaurantId: string, count: number): Promise<void> {
+  private async sendAlert(restaurantId: string, newKeywords: string[]): Promise<void> {
     const restaurant = await prisma.restaurant.findUnique({
       where: { id: restaurantId },
       select: { name: true },
     });
     if (!restaurant) return;
 
-    const newFlags = await prisma.review.findMany({
-      where: { restaurantId, isRedFlag: true },
-      select: { redFlagWords: true, rating: true },
-      orderBy: { scrapedAt: 'desc' },
-      take: count,
-    });
-
-    const keywords = [...new Set(newFlags.flatMap((r) => (r.redFlagWords ?? '').split(', ')))].filter(Boolean);
-
     await telegramService.sendAlert(
-      `🚨 <b>CRITICAL ACTION REQUIRED — ${restaurant.name}</b>\n` +
-      `${count} review(s) flagged with critical issues:\n` +
-      keywords.map((kw) => `• <i>${kw}</i>`).join('\n') +
+      `🚨 <b>NEW CRITICAL ISSUE — ${restaurant.name}</b>\n` +
+      `New red flag keyword(s) detected in reviews:\n` +
+      newKeywords.map((kw) => `• <i>${kw}</i>`).join('\n') +
       `\n\nImmediate attention needed.`
     );
   }

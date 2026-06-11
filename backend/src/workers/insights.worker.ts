@@ -116,6 +116,6 @@ export function createInsightsWorker() {
     logger.error(`[insights-worker] Worker error: ${err.message}`);
   });
 
-  logger.info('[insights-worker] Worker created and listening on queue "insights"');
+  logger.info('[insights-worker] Ready');
   return worker;
 }

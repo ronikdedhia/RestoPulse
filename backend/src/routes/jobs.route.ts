@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db/client';
-import { scrapeQueue, insightsQueue } from '../queues';
+import { scrapeQueue, insightsQueue, digestQueue } from '../queues';
 
 const router = Router();
 
@@ -51,6 +51,15 @@ router.get('/:id', async (req: Request, res: Response) => {
     res.json({ success: true, data: job });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to fetch job' });
+  }
+});
+
+router.post('/trigger-newsletter', async (req: Request, res: Response) => {
+  try {
+    const job = await digestQueue.add('weekly-digest-all', {}, { jobId: `manual-digest-${Date.now()}` });
+    res.json({ success: true, data: { jobId: job.id, message: 'newsletter digest queued' } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to trigger newsletter' });
   }
 });
 

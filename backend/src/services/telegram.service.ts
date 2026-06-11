@@ -62,7 +62,7 @@ class TelegramService {
 
     const msg =
       `🍽️ <b>${summary.restaurantName}</b> — Insights updated\n\n` +
-      `📈 Health score: <b>${summary.healthScore !== null ? `${summary.healthScore}/100` : 'N/A'}</b>\n` +
+      `📈 Health score: <b>${summary.healthScore !== null ? `${summary.healthScore.toFixed(2)}/100` : 'N/A'}</b>\n` +
       `💡 ${summary.insightCount} insights · 🍛 ${summary.dishCount} dishes · 👤 ${summary.staffCount} staff\n\n` +
       `<b>Top findings:</b>\n${topLines}` +
       errorNote;

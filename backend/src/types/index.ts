@@ -126,8 +126,8 @@ export type DishMentionsResponse = z.infer<typeof DishMentionsResponseSchema>;
 export const StaffMentionItemSchema = z.object({
   name: z.string(),
   mentions: z.number().int().min(1),
-  positiveMentions: z.number().int().min(0),
-  negativeMentions: z.number().int().min(0),
+  positiveMentions: z.number().int().min(0).default(0),
+  negativeMentions: z.number().int().min(0).default(0),
 });
 
 export const StaffMentionsResponseSchema = z.object({

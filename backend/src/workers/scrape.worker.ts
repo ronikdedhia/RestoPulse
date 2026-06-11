@@ -60,10 +60,6 @@ async function handleDailyScrapeAll(fullScrape = false) {
 
   logger.info(`[daily-cron] Queued ${googleQueued} Google + ${zomatoQueued} Zomato jobs across ${restaurants.length} restaurants`);
 
-  const now = new Date();
-  const dateIST = now.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
-  await telegramService.sendDailyHeartbeat({ restaurants: restaurants.length, googleQueued, zomatoQueued, dateIST });
-
   return { google: googleQueued, zomato: zomatoQueued };
 }
 
@@ -180,6 +176,6 @@ export function createScrapeWorker() {
     logger.error(`[scrape-worker] Worker error: ${err.message}`);
   });
 
-  logger.info('[scrape-worker] Worker created and listening on queue "scrape"');
+  logger.info('[scrape-worker] Ready');
   return worker;
 }

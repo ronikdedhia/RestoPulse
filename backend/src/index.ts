@@ -55,7 +55,7 @@ async function bootstrap() {
     await scheduleWeeklyDigest();
 
     const server = app.listen(config.port, () => {
-      logger.info(`RestoPulse backend running on port ${config.port}`);
+      logger.info(`RestoPulse API ready — port ${config.port} | env=${config.nodeEnv}`);
     });
 
     process.on('SIGTERM', async () => {

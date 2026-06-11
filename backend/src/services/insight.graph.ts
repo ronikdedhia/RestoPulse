@@ -43,20 +43,25 @@ const jsonParser = new JsonOutputParser();
 const insightsChain = ChatPromptTemplate.fromMessages([
   [
     'system',
-    'You are a restaurant PM analyst. Analyze reviews and return structured JSON insights. Be specific, evidence-based, actionable. Categories: food_quality, service, ambiance, pricing, hygiene, staff, wait_time, overall. Respond with valid JSON only.',
+    'You are a restaurant PM analyst. Analyze reviews and return structured JSON insights. Be specific, evidence-based, actionable. Respond with valid JSON only.',
   ],
   [
     'human',
-    `Analyze {reviewCount} reviews for "{restaurantName}". Return JSON only:
-{{"insights":[{{"category":"food_quality|service|ambiance|pricing|hygiene|staff|wait_time|overall","insight":"...","priority":"high|medium|low","overallSentiment":"positive|negative|mixed|neutral","evidenceCount":0,"keyThemes":["..."],"suggestedAction":"...","impactScore":0.0}}],"reviewPeriod":{{"from":"{dateFrom}","to":"{dateTo}"}},"totalReviewsAnalyzed":{reviewCount}}}
+    `Analyze {reviewCount} reviews for "{restaurantName}". Return JSON only with this exact structure:
+{{"insights":[{{"category":"food_quality","insight":"specific finding here","priority":"high","overallSentiment":"negative","evidenceCount":5,"keyThemes":["theme1","theme2"],"suggestedAction":"specific action","impactScore":0.85}}],"reviewPeriod":{{"from":"{dateFrom}","to":"{dateTo}"}},"totalReviewsAnalyzed":{reviewCount}}}
+
+Rules:
+- category must be exactly one of: food_quality, service, ambiance, pricing, hygiene, staff, wait_time, overall
+- priority must be exactly one of: high, medium, low
+- overallSentiment must be exactly one of: positive, negative, mixed, neutral
+- impactScore is 0.0 to 1.0
+- Generate 5-6 insights sorted by impactScore desc
 
 REVIEWS:
-{reviewTexts}
-
-Generate 5-6 insights sorted by impactScore desc.`,
+{reviewTexts}`,
   ],
 ])
-  .pipe(llm)
+  .pipe(new ChatGroq({ apiKey: config.groq.apiKey, model: config.groq.model, maxTokens: 2000 }))
   .pipe(jsonParser);
 
 const dishChain = ChatPromptTemplate.fromMessages([
@@ -152,6 +157,17 @@ async function generateInsightsNode(state: InsightStateType): Promise<Partial<In
       reviewTexts,
     });
 
+    // Coerce pipe-separated category (e.g. "food_quality|service") → take first valid value
+    const validCategories = ['food_quality','service','ambiance','pricing','hygiene','staff','wait_time','overall'];
+    if (raw && Array.isArray(raw.insights)) {
+      raw.insights = raw.insights.map((ins: { category?: string }) => ({
+        ...ins,
+        category: typeof ins.category === 'string' && ins.category.includes('|')
+          ? ins.category.split('|').find((c) => validCategories.includes(c.trim())) ?? ins.category
+          : ins.category,
+      }));
+    }
+
     const parsed = InsightsResponseSchema.safeParse(raw);
     if (!parsed.success) {
       logger.warn(`[graph] Insights Zod validation failed: ${parsed.error.message}`);
@@ -213,6 +229,11 @@ async function extractStaffNode(state: InsightStateType): Promise<Partial<Insigh
 
     // LLM sometimes returns a bare array instead of {staff:[...]}
     const normalized = Array.isArray(rawResult) ? { staff: rawResult } : rawResult;
+
+    // Strip entries with missing or 0 mentions
+    if (normalized && Array.isArray(normalized.staff)) {
+      normalized.staff = normalized.staff.filter((s: { mentions?: number }) => (s.mentions ?? 0) >= 1);
+    }
 
     const parsed = StaffMentionsResponseSchema.safeParse(normalized);
     if (!parsed.success) {
