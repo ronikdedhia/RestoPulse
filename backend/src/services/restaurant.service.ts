@@ -59,21 +59,7 @@ class RestaurantService {
     });
   }
 
-  async delete(id: string) {
-    return prisma.restaurant.update({
-      where: { id },
-      data: { isActive: false },
-    });
-  }
 
-  async getScrapeStatus(id: string) {
-    const jobs = await prisma.scrapeJob.findMany({
-      where: { restaurantId: id },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-    });
-    return jobs;
-  }
 }
 
 export const restaurantService = new RestaurantService();

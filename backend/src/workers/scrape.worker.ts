@@ -12,7 +12,7 @@ import { insightsQueue, scrapeQueue } from '../queues';
 import { prisma } from '../db/client';
 import { logger } from '../utils/logger';
 import { ScrapeJobData } from '../types';
-import { telegramService } from '../services/telegram.service';
+
 
 function getYesterdayIST(): string {
   const d = new Date();

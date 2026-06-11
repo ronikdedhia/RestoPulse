@@ -12,9 +12,7 @@ export const api = axios.create({
 export const fetchRestaurants = () => api.get('/api/restaurants').then((r) => r.data.data);
 export const fetchRestaurant = (id: string) => api.get(`/api/restaurants/${id}`).then((r) => r.data.data);
 export const fetchInsights = () => api.get('/api/insights').then((r) => r.data.data);
-export const fetchRestaurantInsights = (id: string) => api.get(`/api/insights/restaurant/${id}`).then((r) => r.data.data);
 export const fetchReviewStats = (id: string) => api.get(`/api/reviews/restaurant/${id}/stats`).then((r) => r.data.data);
-export const fetchJobs = () => api.get('/api/jobs').then((r) => r.data.data);
 export const fetchQueueStats = () => api.get('/api/jobs/queue-stats').then((r) => r.data.data);
 
 export const createRestaurant = (data: {
@@ -69,9 +67,6 @@ export const fetchHealthScore = (id: string) =>
 
 export const syncAuthUser = (token: string, data: { email: string; firstName?: string; lastName?: string; imageUrl?: string }) =>
   api.post('/api/auth/sync', data, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data.data);
-
-export const claimRestaurant = (token: string, restaurantId: string) =>
-  api.post(`/api/auth/restaurants/${restaurantId}/claim`, {}, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data.data);
 
 export const fetchRedFlags = (id: string) =>
   api.get(`/api/insights/restaurant/${id}/red-flags`).then((r) => r.data.data);

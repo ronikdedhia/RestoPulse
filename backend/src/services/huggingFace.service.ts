@@ -52,10 +52,6 @@ class HuggingFaceService {
     return results;
   }
 
-  async analyzeSentiment(text: string): Promise<Sentiment | null> {
-    const [result] = await this.analyzeSentimentBatch([text]);
-    return result ?? null;
-  }
 }
 
 export const huggingFaceService = new HuggingFaceService();
