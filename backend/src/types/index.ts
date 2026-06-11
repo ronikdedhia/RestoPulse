@@ -48,14 +48,14 @@ export const SentimentSchema = z.enum(['positive', 'negative', 'mixed', 'neutral
 export type Sentiment = z.infer<typeof SentimentSchema>;
 
 export const GeneratedInsightSchema = z.object({
-  category: InsightCategorySchema,
-  insight: z.string(),
-  priority: PrioritySchema,
-  overallSentiment: SentimentSchema,
-  evidenceCount: z.number().int(),
-  keyThemes: z.array(z.string()),
-  suggestedAction: z.string(),
-  impactScore: z.number().min(0).max(1),
+  category: InsightCategorySchema.catch('overall'),
+  insight: z.string().default(''),
+  priority: PrioritySchema.catch('medium'),
+  overallSentiment: SentimentSchema.catch('neutral'),
+  evidenceCount: z.number().int().default(0),
+  keyThemes: z.array(z.string()).default([]),
+  suggestedAction: z.string().default(''),
+  impactScore: z.number().min(0).max(1).catch(0.5),
 });
 
 export type GeneratedInsight = z.infer<typeof GeneratedInsightSchema>;
@@ -63,10 +63,10 @@ export type GeneratedInsight = z.infer<typeof GeneratedInsightSchema>;
 export const InsightsResponseSchema = z.object({
   insights: z.array(GeneratedInsightSchema),
   reviewPeriod: z.object({
-    from: z.string(),
-    to: z.string(),
-  }),
-  totalReviewsAnalyzed: z.number(),
+    from: z.string().default('unknown'),
+    to: z.string().default('unknown'),
+  }).default({ from: 'unknown', to: 'unknown' }),
+  totalReviewsAnalyzed: z.number().default(0),
 });
 
 export type InsightsResponse = z.infer<typeof InsightsResponseSchema>;
@@ -111,9 +111,9 @@ export interface InsightsJobData {
 
 export const DishMentionItemSchema = z.object({
   dish: z.string(),
-  mentions: z.number().int().min(1),
-  positiveMentions: z.number().int().min(0),
-  negativeMentions: z.number().int().min(0),
+  mentions: z.number().int().min(0).default(0),
+  positiveMentions: z.number().int().min(0).default(0),
+  negativeMentions: z.number().int().min(0).default(0),
 });
 
 export const DishMentionsResponseSchema = z.object({
@@ -125,7 +125,7 @@ export type DishMentionsResponse = z.infer<typeof DishMentionsResponseSchema>;
 
 export const StaffMentionItemSchema = z.object({
   name: z.string(),
-  mentions: z.number().int().min(1),
+  mentions: z.number().int().min(0).default(0),
   positiveMentions: z.number().int().min(0).default(0),
   negativeMentions: z.number().int().min(0).default(0),
 });
