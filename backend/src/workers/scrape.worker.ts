@@ -14,14 +14,21 @@ import { logger } from '../utils/logger';
 import { ScrapeJobData } from '../types';
 import { telegramService } from '../services/telegram.service';
 
-async function handleDailyScrapeAll() {
-  logger.info('[daily-cron] Triggered — queuing scrape jobs');
+function getYesterdayIST(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
+}
+
+async function handleDailyScrapeAll(fullScrape = false) {
+  logger.info(`[daily-cron] Triggered — queuing scrape jobs${fullScrape ? ' (full, no date filter)' : ''}`);
 
   const restaurants = await prisma.restaurant.findMany({
     where: { isActive: true },
     select: { id: true, googleMapsUrl: true, zomatoUrl: true },
   });
 
+  const startDate = fullScrape ? undefined : getYesterdayIST();
   let googleQueued = 0;
   let zomatoQueued = 0;
 
@@ -32,7 +39,7 @@ async function handleDailyScrapeAll() {
       });
       await scrapeQueue.add(
         'scrape',
-        { restaurantId: r.id, sourceUrl: r.googleMapsUrl, source: 'google', maxReviews: config.workers.maxReviewsPerRestaurant, jobDbId: jobRecord.id },
+        { restaurantId: r.id, sourceUrl: r.googleMapsUrl, source: 'google', maxReviews: config.workers.maxReviewsPerRestaurant, startDate, jobDbId: jobRecord.id },
         { jobId: `scrape-google-${r.id}-${Date.now()}` }
       );
       googleQueued++;
@@ -44,7 +51,7 @@ async function handleDailyScrapeAll() {
       });
       await scrapeQueue.add(
         'scrape',
-        { restaurantId: r.id, sourceUrl: r.zomatoUrl, source: 'zomato', maxReviews: config.workers.maxZomatoReviewsPerRestaurant, jobDbId: jobRecord.id },
+        { restaurantId: r.id, sourceUrl: r.zomatoUrl, source: 'zomato', maxReviews: config.workers.maxZomatoReviewsPerRestaurant, startDate, jobDbId: jobRecord.id },
         { jobId: `scrape-zomato-${r.id}-${Date.now()}` }
       );
       zomatoQueued++;
@@ -67,10 +74,10 @@ export function createScrapeWorker() {
       logger.info(`[scrape-worker] Picked up job id=${job.id} name=${job.name}`);
 
       if (job.name === 'daily-scrape-all') {
-        return handleDailyScrapeAll();
+        return handleDailyScrapeAll((job.data as any)?.fullScrape === true);
       }
 
-      const { restaurantId, sourceUrl, source = 'google', maxReviews = config.workers.maxReviewsPerRestaurant, jobDbId } = job.data;
+      const { restaurantId, sourceUrl, source = 'google', maxReviews = config.workers.maxReviewsPerRestaurant, startDate, jobDbId } = job.data;
 
       logger.info(`[scrape] Processing restaurantId=${restaurantId} source=${source}`);
 
@@ -88,7 +95,7 @@ export function createScrapeWorker() {
           const reviews = await apifyService.scrapeZomatoRestaurant(sourceUrl, maxReviews ?? config.workers.maxZomatoReviewsPerRestaurant);
           saved = await reviewService.batchUpsertZomato(restaurantId, reviews);
         } else {
-          const { reviews, meta } = await apifyService.scrapeRestaurant(sourceUrl, maxReviews);
+          const { reviews, meta } = await apifyService.scrapeRestaurant(sourceUrl, maxReviews, startDate);
           saved = await reviewService.batchUpsert(restaurantId, reviews);
           if (meta) await restaurantService.upsertFromApify(restaurantId, meta);
         }

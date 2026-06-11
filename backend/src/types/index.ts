@@ -94,6 +94,7 @@ export interface ScrapeJobData {
   source: 'google' | 'zomato';
   maxReviews?: number;
   jobDbId?: string;
+  startDate?: string; // YYYY-MM-DD IST — omit to fetch all reviews
 }
 
 export interface InsightsJobData {

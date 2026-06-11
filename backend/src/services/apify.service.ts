@@ -22,19 +22,20 @@ export interface ScrapeResult {
 }
 
 class ApifyService {
-  async scrapeRestaurant(googleMapsUrl: string, maxReviews: number): Promise<ScrapeResult> {
-    logger.info(`Starting Apify scrape: ${googleMapsUrl}`);
+  async scrapeRestaurant(googleMapsUrl: string, maxReviews: number, startDate?: string): Promise<ScrapeResult> {
+    logger.info(`Starting Apify scrape: ${googleMapsUrl}${startDate ? ` from ${startDate}` : ' (all reviews)'}`);
 
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD IST
-    const runRes = await client.post(`/acts/${config.apify.actorId}/runs`, {
+    const body: Record<string, unknown> = {
       startUrls: [{ url: googleMapsUrl }],
       maxReviews,
       reviewsSort: 'newest',
-      reviewsStartDate: today,
       language: 'en',
       personalData: true,
-    });
-    logger.info(`[apify] Scraping max ${maxReviews} reviews from ${today} onwards`);
+    };
+    if (startDate) body.reviewsStartDate = startDate;
+
+    const runRes = await client.post(`/acts/${config.apify.actorId}/runs`, body);
+    logger.info(`[apify] Scraping max ${maxReviews} reviews${startDate ? ` from ${startDate}` : ''}`);
 
     const runId: string = runRes.data.data.id;
     logger.debug(`Apify run started: ${runId}`);

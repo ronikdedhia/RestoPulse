@@ -54,4 +54,23 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/trigger-daily-scrape', async (req: Request, res: Response) => {
+  try {
+    // full=true (default for manual) skips the date filter so all recent reviews are fetched
+    const full = req.query.full !== 'false';
+    const job = await scrapeQueue.add(
+      'daily-scrape-all',
+      { fullScrape: full } as any,
+      { jobId: `manual-daily-scrape-${Date.now()}` }
+    );
+    const [scrapeCounts] = await Promise.all([scrapeQueue.getJobCounts()]);
+    res.json({
+      success: true,
+      data: { jobId: job.id, fullScrape: full, message: 'daily-scrape-all queued', queueCounts: scrapeCounts },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to trigger scrape' });
+  }
+});
+
 export default router;
