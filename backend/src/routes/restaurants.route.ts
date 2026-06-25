@@ -35,6 +35,31 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'At least one of googleMapsUrl or zomatoUrl is required' });
     }
     const restaurant = await restaurantService.create({ name, address, googleMapsUrl, zomatoUrl, cuisine, priceLevel });
+
+    if (restaurant.googleMapsUrl) {
+      const jobRecord = await prisma.scrapeJob.create({
+        data: { restaurantId: restaurant.id, status: 'pending', jobType: 'scrape' },
+      });
+      const bullJob = await scrapeQueue.add(
+        'scrape',
+        { restaurantId: restaurant.id, sourceUrl: restaurant.googleMapsUrl, source: 'google', maxReviews: config.workers.maxReviewsPerRestaurant, jobDbId: jobRecord.id },
+        { jobId: `scrape-google-${restaurant.id}-${Date.now()}` }
+      );
+      await prisma.scrapeJob.update({ where: { id: jobRecord.id }, data: { bullJobId: bullJob.id } });
+    }
+
+    if (restaurant.zomatoUrl) {
+      const jobRecord = await prisma.scrapeJob.create({
+        data: { restaurantId: restaurant.id, status: 'pending', jobType: 'scrape' },
+      });
+      const bullJob = await scrapeQueue.add(
+        'scrape',
+        { restaurantId: restaurant.id, sourceUrl: restaurant.zomatoUrl, source: 'zomato', maxReviews: config.workers.maxZomatoReviewsPerRestaurant, jobDbId: jobRecord.id },
+        { jobId: `scrape-zomato-${restaurant.id}-${Date.now()}` }
+      );
+      await prisma.scrapeJob.update({ where: { id: jobRecord.id }, data: { bullJobId: bullJob.id } });
+    }
+
     res.status(201).json({ success: true, data: restaurant });
   } catch (err: any) {
     if (err.code === 'P2002') {
