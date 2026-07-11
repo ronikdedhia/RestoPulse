@@ -14,6 +14,7 @@ import jobsRouter from './routes/jobs.route';
 import authRouter from './routes/auth.route';
 
 const app = express();
+app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(cors({ origin: config.corsOrigin }));
