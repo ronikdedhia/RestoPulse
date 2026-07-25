@@ -94,7 +94,8 @@ export function createInsightsWorker() {
     {
       connection: createRedis(),
       concurrency: config.workers.insightsConcurrency,
-      drainDelay: 30,
+      drainDelay: 300,
+      stalledInterval: 300_000,
     }
   );
 

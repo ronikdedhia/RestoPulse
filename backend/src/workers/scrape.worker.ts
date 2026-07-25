@@ -154,7 +154,8 @@ export function createScrapeWorker() {
     {
       connection: createRedis(),
       concurrency: config.workers.scrapeConcurrency,
-      drainDelay: 30,
+      drainDelay: 300,
+      stalledInterval: 300_000,
     }
   );
 

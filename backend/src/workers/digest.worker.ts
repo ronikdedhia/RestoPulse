@@ -15,7 +15,7 @@ export function createDigestWorker() {
         return result;
       }
     },
-    { connection: createRedis(), concurrency: 1, drainDelay: 30 }
+    { connection: createRedis(), concurrency: 1, drainDelay: 300, stalledInterval: 300_000 }
   );
 
   worker.on('completed', (job, result) => {
