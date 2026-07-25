@@ -11,6 +11,7 @@ import { redFlagService } from '../services/redFlag.service';
 import { insightsQueue, scrapeQueue } from '../queues';
 import { prisma } from '../db/client';
 import { logger } from '../utils/logger';
+import { attachRedisQuotaGuard } from '../utils/redisQuotaGuard';
 import { ScrapeJobData } from '../types';
 
 
@@ -153,6 +154,7 @@ export function createScrapeWorker() {
     {
       connection: createRedis(),
       concurrency: config.workers.scrapeConcurrency,
+      drainDelay: 30,
     }
   );
 
@@ -172,9 +174,7 @@ export function createScrapeWorker() {
     logger.warn(`[scrape-worker] Job ${jobId} stalled`);
   });
 
-  worker.on('error', (err) => {
-    logger.error(`[scrape-worker] Worker error: ${err.message}`);
-  });
+  attachRedisQuotaGuard(worker, 'scrape-worker');
 
   logger.info('[scrape-worker] Ready');
   return worker;

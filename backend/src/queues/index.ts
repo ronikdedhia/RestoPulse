@@ -16,8 +16,13 @@ function buildDigestCron(): string {
 
 const WEEKLY_DIGEST_CRON = buildDigestCron();
 
+// Queue producers don't block, so they share one connection instead of
+// opening a separate persistent connection per queue (was 3 idle
+// connections all doing their own keepalive traffic against Upstash).
+const producerConnection = createRedis();
+
 export const scrapeQueue = new Queue<ScrapeJobData>('scrape', {
-  connection: createRedis(),
+  connection: producerConnection,
   defaultJobOptions: {
     attempts: 3,
     backoff: { type: 'exponential', delay: 10_000 },
@@ -27,7 +32,7 @@ export const scrapeQueue = new Queue<ScrapeJobData>('scrape', {
 });
 
 export const insightsQueue = new Queue<InsightsJobData>('insights', {
-  connection: createRedis(),
+  connection: producerConnection,
   defaultJobOptions: {
     attempts: 2,
     backoff: { type: 'exponential', delay: 5_000 },
@@ -37,7 +42,7 @@ export const insightsQueue = new Queue<InsightsJobData>('insights', {
 });
 
 export const digestQueue = new Queue('digest', {
-  connection: createRedis(),
+  connection: producerConnection,
   defaultJobOptions: { attempts: 2, removeOnComplete: 10, removeOnFail: 20 },
 });
 

@@ -2,6 +2,7 @@ import { Worker, Job } from 'bullmq';
 import { createRedis } from '../config/redis';
 import { emailService } from '../services/email.service';
 import { logger } from '../utils/logger';
+import { attachRedisQuotaGuard } from '../utils/redisQuotaGuard';
 
 export function createDigestWorker() {
   const worker = new Worker(
@@ -14,7 +15,7 @@ export function createDigestWorker() {
         return result;
       }
     },
-    { connection: createRedis(), concurrency: 1 }
+    { connection: createRedis(), concurrency: 1, drainDelay: 30 }
   );
 
   worker.on('completed', (job, result) => {
@@ -25,9 +26,7 @@ export function createDigestWorker() {
     logger.error(`[digest-worker] Job ${job?.id} failed: ${err.message}`);
   });
 
-  worker.on('error', (err) => {
-    logger.error(`[digest-worker] Worker error: ${err.message}`);
-  });
+  attachRedisQuotaGuard(worker, 'digest-worker');
 
   logger.info('[digest-worker] Ready');
   return worker;

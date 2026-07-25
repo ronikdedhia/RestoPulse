@@ -7,6 +7,7 @@ import { healthScoreService } from '../services/healthScore.service';
 import { telegramService } from '../services/telegram.service';
 import { prisma } from '../db/client';
 import { logger } from '../utils/logger';
+import { attachRedisQuotaGuard } from '../utils/redisQuotaGuard';
 import { InsightsJobData } from '../types';
 
 export function createInsightsWorker() {
@@ -93,6 +94,7 @@ export function createInsightsWorker() {
     {
       connection: createRedis(),
       concurrency: config.workers.insightsConcurrency,
+      drainDelay: 30,
     }
   );
 
@@ -112,9 +114,7 @@ export function createInsightsWorker() {
     logger.warn(`[insights-worker] Job ${jobId} stalled`);
   });
 
-  worker.on('error', (err) => {
-    logger.error(`[insights-worker] Worker error: ${err.message}`);
-  });
+  attachRedisQuotaGuard(worker, 'insights-worker');
 
   logger.info('[insights-worker] Ready');
   return worker;
