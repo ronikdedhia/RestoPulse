@@ -2,7 +2,7 @@
 
 **Live:** https://resto-pulse-frontend.vercel.app/
 
-AI-powered restaurant review analytics platform for Mumbai. Scrapes reviews from Google Maps and Zomato via Apify, processes them with GROQ (Llama 3.1) to generate PM-level actionable insights, and displays them on a Next.js dashboard.
+AI-powered restaurant review analytics platform for Mumbai. Scrapes reviews from Google Maps and Zomato via Apify, processes them with Groq (gpt-oss-20b) to generate PM-level actionable insights, and displays them on a Next.js dashboard.
 
 ---
 
@@ -24,7 +24,7 @@ RestoPulse/
 | Database | Turso (libsql) + Prisma ORM (driver adapter) |
 | Job Queue | BullMQ + Redis (local Docker or Upstash via `REDIS_URL`) |
 | Scraping | Apify (Google Maps + Zomato scrapers) |
-| AI / Insights | GROQ (`llama-3.1-8b-instant`) |
+| AI / Insights | Groq (`openai/gpt-oss-20b`, set with `GROQ_MODEL`) |
 | Sentiment ML | HuggingFace (`cardiffnlp/twitter-roberta-base-sentiment-latest`) |
 | Auth | Clerk (`@clerk/nextjs` — manual JWT decode on backend) |
 | Email | Brevo (transactional REST API) |
@@ -458,7 +458,7 @@ DATABASE_URL_LOCAL=file:./prisma/dev.db    # Prisma CLI only
 
 # GROQ
 GROQ_API_KEY=<your-key>
-GROQ_MODEL=llama-3.1-8b-instant
+GROQ_MODEL=openai/gpt-oss-20b
 
 # Apify
 APIFY_TOKEN=<your-token>

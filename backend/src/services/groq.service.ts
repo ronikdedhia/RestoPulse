@@ -34,7 +34,7 @@ Reply:`;
 
     const response = await client.chat.completions.create({
       model: config.groq.model,
-      max_tokens: 200,
+      max_tokens: 1024, // headroom: gpt-oss reasoning tokens count toward the limit
       messages: [
         { role: 'system', content: 'You are a restaurant owner writing a direct, human reply to a customer review. Write naturally, not like a corporate template.' },
         { role: 'user', content: prompt },

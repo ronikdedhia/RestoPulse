@@ -47,7 +47,7 @@ export const config = {
 
   groq: {
     apiKey: required('GROQ_API_KEY'),
-    model: optional('GROQ_MODEL', 'llama-3.1-8b-instant'),
+    model: optional('GROQ_MODEL', 'openai/gpt-oss-20b'),
   },
 
   corsOrigin: optional('CORS_ORIGIN', 'http://localhost:3000'),
